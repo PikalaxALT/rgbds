@@ -29,9 +29,9 @@ static void
 usage(void)
 {
 	printf(
-"usage: rgbfix [-Ccjsvx] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
+"usage: rgbfix [-Ccjsv] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
 "              [-m mbc_type] [-n rom_version] [-p pad_value] [-r ram_size]\n"
-"              [-t title_str] file\n");
+"              [-t title_str] [-x tpp_version] file\n");
 	exit(1);
 }
 
@@ -75,7 +75,7 @@ main(int argc, char *argv[])
 	int tppversion = 0x0100;
 	progname = argv[0];
 
-	while ((ch = getopt(argc, argv, "Cci:jk:l:m:N:n:p:sr:t:v:x")) != -1) {
+	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:v:x")) != -1) {
 		switch (ch) {
 		case 'C':
 			coloronly = true;
@@ -128,18 +128,6 @@ main(int argc, char *argv[])
 			if (cartridge < 0 || cartridge > 0xFF) {
 				errx(1, "Argument for option 'm' must be "
 				    "between 0 and 255");
-			}
-			break;
-		case 'N':
-			setversion = true;
-
-			tppversion = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
-				errx(1, "Invalid argument for option 'N'");
-			}
-			if (tppversion < 0 || tppversion > 0xFFFF) {
-				errx(1, "Argument for option 'N' must be "
-				    "between 0 and 65535");
 			}
 			break;
 		case 'n':
@@ -204,7 +192,16 @@ main(int argc, char *argv[])
 			resize = true;
 			nonjapan = true;
 			setramsize = true;
-			setversion = true;
+
+			tppversion = strtoul(optarg, &ep, 0);
+			if (optarg[0] == '\0' || *ep != '\0') {
+				errx(1, "Invalid argument for option 'x'");
+			}
+			if (tppversion < 0 || tppversion > 0xFFFF) {
+				errx(1, "Argument for option 'x' must be "
+				    "between 0 and 65535");
+			}
+			break;
 			break;
 		default:
 			usage();
