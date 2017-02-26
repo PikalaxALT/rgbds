@@ -77,7 +77,7 @@ main(int argc, char *argv[])
 
 	progname = argv[0];
 
-	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:v:x")) != -1) {
+	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:vx:")) != -1) {
 		switch (ch) {
 		case 'C':
 			coloronly = true;
