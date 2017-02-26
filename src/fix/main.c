@@ -72,7 +72,7 @@ main(int argc, char *argv[])
 	int padvalue;  /* to pad the rom with if it changes size */
 
 	bool tppspec = false;
-	int tppversion = 0x0100;
+	int tppversion;
 	progname = argv[0];
 
 	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:v:x")) != -1) {
@@ -201,7 +201,6 @@ main(int argc, char *argv[])
 				errx(1, "Argument for option 'x' must be "
 				    "between 0 and 65535");
 			}
-			break;
 			break;
 		default:
 			usage();
