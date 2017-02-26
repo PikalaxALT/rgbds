@@ -31,7 +31,8 @@ usage(void)
 	printf(
 "usage: rgbfix [-Ccjsv] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
 "              [-m mbc_type] [-n rom_version] [-p pad_value] [-r ram_size]\n"
-"              [-t title_str] [-x tpp_version] file\n");
+"              [-t title_str] [-x tpp_version] file\n\n\n"
+"RGBFIX for TPPX cartridge spec, version 1.0.5\n");
 	exit(1);
 }
 
@@ -73,6 +74,7 @@ main(int argc, char *argv[])
 
 	bool tppspec = false;
 	int tppversion;
+
 	progname = argv[0];
 
 	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:v:x")) != -1) {
