@@ -54,7 +54,9 @@ sym_GetValue(char *tzName)
 			}
 		}
 
-		errx(1, "Unknown symbol '%s'", tzName);
+		printf("Unknown symbol '%s'\n", tzName);
+		linker_error = 1;
+		return (0);
 	}
 }
 
@@ -72,7 +74,9 @@ sym_GetBank(char *tzName)
 		}
 	}
 
-	errx(1, "Unknown symbol '%s'", tzName);
+	printf("Unknown symbol '%s'\n", tzName);
+	linker_error = 1;
+	return (0);
 }
 
 void 

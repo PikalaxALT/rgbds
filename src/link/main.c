@@ -22,6 +22,7 @@ enum eBlockType {
 
 SLONG options = 0;
 SLONG fillchar = 0;
+UBYTE linker_error = 0;
 char *smartlinkstartsymbol;
 
 char *progname;
@@ -108,5 +109,5 @@ main(int argc, char *argv[])
 	Output();
 	CloseMapfile();
 
-	return (0);
+	return (linker_error);
 }
