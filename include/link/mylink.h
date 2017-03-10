@@ -8,8 +8,9 @@
 #include "types.h"
 
 extern SLONG options;
-#define OPT_SMALL	0x01
+#define OPT_SMALL	        0x01
 #define OPT_SMART_C_LINK	0x02
+#define OPT_NO_WRAM_BANKING 0x04
 
 enum eRpnData {
 	RPN_ADD = 0,

@@ -313,15 +313,24 @@ AssignSections(void)
 		} else if (i == BANK_WRAM0) {
 			/* WRAM */
 			BankFree[i]->nOrg = 0xC000;
-			BankFree[i]->nSize = 0x1000;
+			if (options & OPT_NO_WRAM_BANKING) {
+				BankFree[i]->nSize = 0x2000;
+			} else {
+				BankFree[i]->nSize = 0x1000;
+			}
 		} else if (i >= BANK_SRAM && i < BANK_SRAM + BANK_COUNT_SRAM) {
 			/* Swappable SRAM bank */
 			BankFree[i]->nOrg = 0xA000;
 			BankFree[i]->nSize = 0x2000;
 		} else if (i >= BANK_WRAMX && i < BANK_WRAMX + BANK_COUNT_WRAMX) {
 			/* Swappable WRAM bank */
-			BankFree[i]->nOrg = 0xD000;
-			BankFree[i]->nSize = 0x1000;
+			if (options & OPT_NO_WRAM_BANKING) {
+				BankFree[i]->nOrg = 0xFFFF;
+				BankFree[i]->nSize = 0x0000;
+			} else {
+				BankFree[i]->nOrg = 0xD000;
+				BankFree[i]->nSize = 0x1000;
+			}
 		} else if (i >= BANK_VRAM && i < BANK_VRAM + BANK_COUNT_VRAM) {
 			/* Swappable VRAM bank */
 			BankFree[i]->nOrg = 0x8000;
@@ -365,8 +374,11 @@ AssignSections(void)
 				pSection->oAssigned = 1;
 				break;
 
-			case SECT_SRAM:
 			case SECT_WRAMX:
+				if (options & OPT_NO_WRAM_BANKING) {
+					errx(1, "Continuous WRAM specified but WRAMX section found");
+				}
+			case SECT_SRAM:
 			case SECT_VRAM:
 			case SECT_ROMX:
 				if (pSection->nBank != -1 && pSection->nOrg != -1) {

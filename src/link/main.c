@@ -35,7 +35,7 @@ static void
 usage(void)
 {
 	printf(
-"usage: rgblink [-t] [-m mapfile] [-n symfile] [-o outfile] [-p pad_value]\n"
+"usage: rgblink [-tw] [-m mapfile] [-n symfile] [-o outfile] [-p pad_value]\n"
 "               [-s symbol] file [...]\n");
 	exit(1);
 }
@@ -56,7 +56,7 @@ main(int argc, char *argv[])
 
 	progname = argv[0];
 
-	while ((ch = getopt(argc, argv, "m:n:o:p:s:t")) != -1) {
+	while ((ch = getopt(argc, argv, "m:n:o:p:s:tw")) != -1) {
 		switch (ch) {
 		case 'm':
 			SetMapfileName(optarg);
@@ -83,6 +83,9 @@ main(int argc, char *argv[])
 			break;
 		case 't':
 			options |= OPT_SMALL;
+			break;
+		case 'w':
+			options |= OPT_NO_WRAM_BANKING;
 			break;
 		default:
 			usage();
