@@ -65,6 +65,8 @@ MapfileInitBank(SLONG bank)
 			fprintf(mf, "HRAM:\n");
 		else if (bank == BANK_VRAM || bank == BANK_VRAM + 1)
 			fprintf(mf, "VRAM Bank #%ld:\n", bank - BANK_VRAM);
+		else if (bank == BANK_OAM)
+			fprintf(mf, "OAM:\n");
 		else if (bank < MAXBANKS)
 			fprintf(mf, "SRAM Bank #%ld:\n", bank - BANK_SRAM);
 	}
@@ -79,6 +81,8 @@ MapfileInitBank(SLONG bank)
 			sfbank = 0;
 		else if (bank == BANK_VRAM || bank == BANK_VRAM + 1)
 			sfbank = bank - BANK_VRAM;
+		else if (bank == BANK_OAM)
+			sfbank = 0;
 		else if (bank < MAXBANKS)
 			sfbank = bank - BANK_SRAM;
 		else
@@ -92,9 +96,14 @@ MapfileWriteSection(struct sSection * pSect)
 	SLONG i;
 
 	if (mf) {
-		fprintf(mf, "  SECTION: $%04lX-$%04lX ($%04lX bytes)\n",
-		    pSect->nOrg, pSect->nOrg + pSect->nByteSize - 1,
-		    pSect->nByteSize);
+		if (pSect->nByteSize > 0) {
+			fprintf(mf, "  SECTION: $%04lX-$%04lX ($%04lX bytes) [\"%s\"]\n",
+				pSect->nOrg, pSect->nOrg + pSect->nByteSize - 1,
+				pSect->nByteSize, pSect->pzName);
+		} else {
+			fprintf(mf, "  SECTION: $%04lX ($0 bytes) [\"%s\"]\n",
+				pSect->nOrg, pSect->pzName);
+		}
 	}
 
 	for (i = 0; i < pSect->nNumberOfSymbols; i += 1) {

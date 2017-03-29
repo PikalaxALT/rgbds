@@ -513,7 +513,7 @@ void	if_skip_to_endc( void )
 %token	T_POP_POPO
 %token	T_POP_PUSHO
 %token	T_POP_OPT
-%token	T_SECT_WRAM0 T_SECT_VRAM T_SECT_ROMX T_SECT_ROM0 T_SECT_HRAM T_SECT_WRAMX T_SECT_SRAM
+%token	T_SECT_WRAM0 T_SECT_VRAM T_SECT_ROMX T_SECT_ROM0 T_SECT_HRAM T_SECT_WRAMX T_SECT_SRAM T_SECT_OAM
 
 %token	T_Z80_ADC T_Z80_ADD T_Z80_AND
 %token	T_Z80_BIT
@@ -1146,6 +1146,7 @@ sectiontype:
 	|	T_SECT_HRAM	{ $$=SECT_HRAM; }
 	|	T_SECT_WRAMX	{ $$=SECT_WRAMX; }
 	|	T_SECT_SRAM	{ $$=SECT_SRAM; }
+	|	T_SECT_OAM	{ $$=SECT_OAM; }
 ;
 
 
@@ -1278,7 +1279,11 @@ z80_jp			:	T_Z80_JP const_16bit
 				|	T_Z80_JP ccode comma const_16bit
 					{ out_AbsByte(0xC2|($2<<3)); out_RelWord(&$4); }
 				|	T_Z80_JP T_MODE_HL_IND
-					{ out_AbsByte(0xE9); }
+					{
+						out_AbsByte(0xE9);
+						if( nPass==1 )
+							printf("warning:'JP [HL]' is obsolete, use 'JP HL' instead.\n");
+					}
 				|	T_Z80_JP T_MODE_HL
 					{ out_AbsByte(0xE9); }
 ;
@@ -1292,7 +1297,11 @@ z80_jr			:	T_Z80_JR const_PCrel
 z80_ldi			:	T_Z80_LDI T_MODE_HL_IND comma T_MODE_A
 					{ out_AbsByte(0x02|(2<<4)); }
 				|	T_Z80_LDI T_MODE_A comma T_MODE_HL
-					{ out_AbsByte(0x0A|(2<<4)); }
+					{
+						out_AbsByte(0x0A|(2<<4));
+						if( nPass==1 )
+							printf("warning:'LDI A,HL' is obsolete, use 'LDI A,[HL]' or 'LD A,[HL+] instead.\n");
+					}
 				|	T_Z80_LDI T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(2<<4)); }
 ;
@@ -1300,7 +1309,11 @@ z80_ldi			:	T_Z80_LDI T_MODE_HL_IND comma T_MODE_A
 z80_ldd			:	T_Z80_LDD T_MODE_HL_IND comma T_MODE_A
 					{ out_AbsByte(0x02|(3<<4)); }
 				|	T_Z80_LDD T_MODE_A comma T_MODE_HL
-					{ out_AbsByte(0x0A|(3<<4)); }
+					{
+						out_AbsByte(0x0A|(3<<4));
+						if( nPass==1 )
+							printf("warning:'LDD A,HL' is obsolete, use 'LDD A,[HL]' or 'LD A,[HL-] instead.\n");
+					}
 				|	T_Z80_LDD T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(3<<4)); }
 ;
