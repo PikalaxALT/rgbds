@@ -1,7 +1,7 @@
-PKG_CONFIG =	pkg-config
-WARNFLAGS =	-Wall -Werror=implicit
-PNGFLAGS !=	${PKG_CONFIG} --cflags libpng
-REALCFLAGS =	${CFLAGS} ${WARNFLAGS} ${PNGFLAGS} -Iinclude -g \
+PKG_CONFIG	= pkg-config
+WARNFLAGS	= -Wall -Werror
+PNGFLAGS	!= ${PKG_CONFIG} --cflags libpng
+REALCFLAGS	= ${CFLAGS} ${WARNFLAGS} ${PNGFLAGS} -Iinclude -g \
 		-std=c99 -D_POSIX_C_SOURCE=200809L
 
 LFLAGS		:= --nounistd
@@ -11,13 +11,13 @@ FLEX		:= flex
 RM		:= rm -rf
 
 # User-defined variables
-PREFIX =	/usr/local
-BINPREFIX =	${PREFIX}/bin
-MANPREFIX =	${PREFIX}/man
-Q =		@
-STRIP = 	-s
-BINMODE =	555
-MANMODE =	444
+PREFIX		= /usr/local
+bindir		= ${PREFIX}/bin
+mandir		= ${PREFIX}/man
+Q		= @
+STRIP		= -s
+BINMODE		= 555
+MANMODE		= 444
 
 rgbasm_obj = \
 	src/asm/asmy.o \
@@ -63,27 +63,27 @@ rgbgfx_obj = \
 all: rgbasm rgblink rgbfix rgbgfx
 
 clean:
-	$Qrm -rf rgbds.html
-	$Qrm -rf rgbasm rgbasm.exe ${rgbasm_obj} rgbasm.html
-	$Qrm -rf rgblink rgblink.exe ${rgblink_obj} rgblink.html
-	$Qrm -rf rgbfix rgbfix.exe ${rgbfix_obj} rgbfix.html
-	$Qrm -rf rgbgfx rgbgfx.exe ${rgbgfx_obj} rgbgfx.html
-	$Qrm -rf src/asm/asmy.c src/asm/asmy.h
-	$Qrm -rf src/link/lexer.c src/link/parser.c src/link/parser.h
+	$Q${RM} rgbds.html
+	$Q${RM} rgbasm rgbasm.exe ${rgbasm_obj} rgbasm.html
+	$Q${RM} rgblink rgblink.exe ${rgblink_obj} rgblink.html
+	$Q${RM} rgbfix rgbfix.exe ${rgbfix_obj} rgbfix.html
+	$Q${RM} rgbgfx rgbgfx.exe ${rgbgfx_obj} rgbgfx.html
+	$Q${RM} src/asm/asmy.c src/asm/asmy.h
+	$Q${RM} src/link/lexer.c src/link/parser.c src/link/parser.h
 
 install: all
-	$Qmkdir -p ${BINPREFIX}
-	$Qinstall ${STRIP} -m ${BINMODE} rgbasm ${BINPREFIX}/rgbasm
-	$Qinstall ${STRIP} -m ${BINMODE} rgbfix ${BINPREFIX}/rgbfix
-	$Qinstall ${STRIP} -m ${BINMODE} rgblink ${BINPREFIX}/rgblink
-	$Qinstall ${STRIP} -m ${BINMODE} rgbgfx ${BINPREFIX}/rgbgfx
-	$Qmkdir -p ${MANPREFIX}/man1 ${MANPREFIX}/man7
-	$Qinstall -m ${MANMODE} src/rgbds.7 ${MANPREFIX}/man7/rgbds.7
-	$Qinstall -m ${MANMODE} src/asm/rgbasm.1 ${MANPREFIX}/man1/rgbasm.1
-	$Qinstall -m ${MANMODE} src/fix/rgbfix.1 ${MANPREFIX}/man1/rgbfix.1
-	$Qinstall -m ${MANMODE} src/link/rgblink.1 ${MANPREFIX}/man1/rgblink.1
-	$Qinstall -m ${MANMODE} src/link/rgblink.5 ${MANPREFIX}/man5/rgblink.5
-	$Qinstall -m ${MANMODE} src/gfx/rgbgfx.1 ${MANPREFIX}/man1/rgbgfx.1
+	$Qmkdir -p ${DESTDIR}${bindir}
+	$Qinstall ${STRIP} -m ${BINMODE} rgbasm ${DESTDIR}${bindir}/rgbasm
+	$Qinstall ${STRIP} -m ${BINMODE} rgbfix ${DESTDIR}${bindir}/rgbfix
+	$Qinstall ${STRIP} -m ${BINMODE} rgblink ${DESTDIR}${bindir}/rgblink
+	$Qinstall ${STRIP} -m ${BINMODE} rgbgfx ${DESTDIR}${bindir}/rgbgfx
+	$Qmkdir -p ${DESTDIR}${mandir}/man1 ${DESTDIR}${mandir}/man5 ${DESTDIR}${mandir}/man7
+	$Qinstall -m ${MANMODE} src/rgbds.7 ${DESTDIR}${mandir}/man7/rgbds.7
+	$Qinstall -m ${MANMODE} src/asm/rgbasm.1 ${DESTDIR}${mandir}/man1/rgbasm.1
+	$Qinstall -m ${MANMODE} src/fix/rgbfix.1 ${DESTDIR}${mandir}/man1/rgbfix.1
+	$Qinstall -m ${MANMODE} src/link/rgblink.1 ${DESTDIR}${mandir}/man1/rgblink.1
+	$Qinstall -m ${MANMODE} src/link/rgblink.5 ${DESTDIR}${mandir}/man5/rgblink.5
+	$Qinstall -m ${MANMODE} src/gfx/rgbgfx.1 ${DESTDIR}${mandir}/man1/rgbgfx.1
 
 rgbasm: ${rgbasm_obj}
 	$Q${CC} ${REALCFLAGS} -o $@ ${rgbasm_obj} -lm
@@ -141,5 +141,7 @@ wwwman:
 		rgbfix.html
 	$Qmandoc ${MANDOC} src/link/rgblink.1 | sed s/OpenBSD/General/ > \
 		rgblink.html
+	$Qmandoc ${MANDOC} src/link/rgblink.5 | sed s/OpenBSD/General/ > \
+		rgblink-script.html
 	$Qmandoc ${MANDOC} src/gfx/rgbgfx.1 | sed s/OpenBSD/General/ > \
 		rgbgfx.html

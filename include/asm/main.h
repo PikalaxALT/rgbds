@@ -11,6 +11,7 @@ struct sOptions {
 	bool verbose;
 	bool haltnop;
 	bool exportall;
+	bool warnings; /* true to enable warnings, false to disable them. */
 	    //-1 == random
 };
 
@@ -27,6 +28,7 @@ extern void opt_Parse(char *s);
 
 noreturn void fatalerror(const char *fmt, ...);
 void yyerror(const char *fmt, ...);
+void warning(const char *fmt, ...);
 
 #define	YY_FATAL_ERROR fatalerror
 

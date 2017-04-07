@@ -118,7 +118,6 @@ ULONG	str2int2( char *s, int length )
 		r<<=8;
 		r|=(UBYTE)(s[i]);
 		i++;
-		
 	}
 	return( r );
 }
@@ -514,6 +513,7 @@ void	if_skip_to_endc( void )
 %token	T_POP_PUSHO
 %token	T_POP_OPT
 %token	T_SECT_WRAM0 T_SECT_VRAM T_SECT_ROMX T_SECT_ROM0 T_SECT_HRAM T_SECT_WRAMX T_SECT_SRAM T_SECT_OAM
+%token	T_SECT_HOME T_SECT_DATA T_SECT_CODE T_SECT_BSS
 
 %token	T_Z80_ADC T_Z80_ADD T_Z80_AND
 %token	T_Z80_BIT
@@ -1040,9 +1040,14 @@ const			:	T_ID							{ $$ = sym_GetConstantValue($1); }
 				|	const T_OP_LOGICNE const 		{ $$ = $1 != $3; }
 				|	const T_OP_ADD const			{ $$ = $1 + $3; }
 				|	const T_OP_SUB const			{ $$ = $1 - $3; }
-				|	T_ID  T_OP_SUB T_ID				{ $$ = sym_GetDefinedValue($1) - sym_GetDefinedValue($3); }
+				|	T_ID  T_OP_SUB T_ID
+					{
+						if (sym_IsRelocDiffDefined($1, $3) == 0)
+							fatalerror("'%s - %s' not defined.", $1, $3);
+						$$ = sym_GetDefinedValue($1) - sym_GetDefinedValue($3);
+					}
 				|	const T_OP_XOR const			{ $$ = $1 ^ $3; }
-				|	const T_OP_OR const				{ $$ = $1 | $3; }
+				|	const T_OP_OR const			{ $$ = $1 | $3; }
 				|	const T_OP_AND const			{ $$ = $1 & $3; }
 				|	const T_OP_SHL const			{ $$ = $1 << $3; }
 				|	const T_OP_SHR const			{ $$ = $1 >> $3; }
@@ -1147,6 +1152,22 @@ sectiontype:
 	|	T_SECT_WRAMX	{ $$=SECT_WRAMX; }
 	|	T_SECT_SRAM	{ $$=SECT_SRAM; }
 	|	T_SECT_OAM	{ $$=SECT_OAM; }
+	|	T_SECT_HOME	{
+					warning("HOME section name is deprecated, use ROM0 instead.");
+					$$=SECT_ROM0;
+				}
+	|	T_SECT_DATA	{
+					warning("DATA section name is deprecated, use ROMX instead.");
+					$$=SECT_ROMX;
+				}
+	|	T_SECT_CODE	{
+					warning("CODE section name is deprecated, use ROMX instead.");
+					$$=SECT_ROMX;
+				}
+	|	T_SECT_BSS	{
+					warning("BSS section name is deprecated, use WRAM0 instead.");
+					$$=SECT_WRAM0;
+				}
 ;
 
 
@@ -1282,7 +1303,7 @@ z80_jp			:	T_Z80_JP const_16bit
 					{
 						out_AbsByte(0xE9);
 						if( nPass==1 )
-							printf("warning:'JP [HL]' is obsolete, use 'JP HL' instead.\n");
+							warning("'JP [HL]' is obsolete, use 'JP HL' instead.");
 					}
 				|	T_Z80_JP T_MODE_HL
 					{ out_AbsByte(0xE9); }
@@ -1300,7 +1321,7 @@ z80_ldi			:	T_Z80_LDI T_MODE_HL_IND comma T_MODE_A
 					{
 						out_AbsByte(0x0A|(2<<4));
 						if( nPass==1 )
-							printf("warning:'LDI A,HL' is obsolete, use 'LDI A,[HL]' or 'LD A,[HL+] instead.\n");
+							warning("'LDI A,HL' is obsolete, use 'LDI A,[HL]' or 'LD A,[HL+] instead.");
 					}
 				|	T_Z80_LDI T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(2<<4)); }
@@ -1312,7 +1333,7 @@ z80_ldd			:	T_Z80_LDD T_MODE_HL_IND comma T_MODE_A
 					{
 						out_AbsByte(0x0A|(3<<4));
 						if( nPass==1 )
-							printf("warning:'LDD A,HL' is obsolete, use 'LDD A,[HL]' or 'LD A,[HL-] instead.\n");
+							warning("'LDD A,HL' is obsolete, use 'LDD A,[HL]' or 'LD A,[HL-] instead.");
 					}
 				|	T_Z80_LDD T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(3<<4)); }

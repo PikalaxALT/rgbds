@@ -63,7 +63,7 @@ ensureSectionTypeIsValid(enum eSectionType type)
 	}
 }
 
-SLONG 
+SLONG
 area_Avail(SLONG bank)
 {
 	SLONG r;
@@ -103,14 +103,14 @@ area_doAlloc(struct sFreeArea *pArea, SLONG org, SLONG size)
 					pNewArea->nOrg = org + size;
 					pNewArea->nSize -= size + pArea->nSize;
 					return org;
-					
+
 				} else {
 					err(1, NULL);
 				}
 			}
 		}
 	}
-	
+
 	return -1;
 }
 
@@ -125,7 +125,7 @@ area_AllocAbs(struct sFreeArea ** ppArea, SLONG org, SLONG size)
 		if (result != -1) {
 			return result;
 		}
-		
+
 		ppArea = &(pArea->pNext);
 		pArea = *ppArea;
 	}
@@ -140,7 +140,7 @@ area_AllocAbsAnyBank(SLONG org, SLONG size, enum eSectionType type)
 
 	SLONG startBank = SECT_ATTRIBUTES[type].bank;
 	SLONG bankCount = SECT_ATTRIBUTES[type].bankCount;
-	
+
 	for (int i = 0; i < bankCount; i++) {
 		if (area_AllocAbs(&BankFree[startBank + i], org, size) != -1) {
 			return startBank + i;
@@ -156,20 +156,20 @@ area_Alloc(struct sFreeArea ** ppArea, SLONG size, SLONG alignment) {
 	if (alignment < 1) {
 		alignment = 1;
 	}
-	
+
 	pArea = *ppArea;
 	while (pArea) {
-		SLONG org = pArea->nOrg;	
+		SLONG org = pArea->nOrg;
 		if (org % alignment) {
 			org += alignment;
 		}
 		org -= org % alignment;
-		
+
 		SLONG result = area_doAlloc(pArea, org, size);
 		if (result != -1) {
 			return result;
 		}
-		
+
 		ppArea = &(pArea->pNext);
 		pArea = *ppArea;
 	}
@@ -183,7 +183,7 @@ area_AllocAnyBank(SLONG size, SLONG alignment, enum eSectionType type) {
 
 	SLONG startBank = SECT_ATTRIBUTES[type].bank;
 	SLONG bankCount = SECT_ATTRIBUTES[type].bankCount;
-	
+
 	for (int i = 0; i < bankCount; i++) {
 		SLONG org = area_Alloc(&BankFree[startBank + i], size, alignment);
 		if (org != -1) {
@@ -212,9 +212,26 @@ FindLargestSection(enum eSectionType type, bool bankFixed)
 		}
 		pSection = pSection->pNext;
 	}
-	
+
 	return r;
 }
+
+int
+IsSectionNameInUse(const char *name)
+{
+	struct sSection *pSection;
+
+	pSection = pSections;
+	while (pSection) {
+		if (strcmp(pSection->pzName, name) == 0)
+			return 1;
+
+		pSection = pSection->pNext;
+	}
+
+	return 0;
+}
+
 
 int
 IsSectionSameTypeBankAndFloating(const char *name, enum eSectionType type, int bank)
@@ -244,7 +261,7 @@ IsSectionSameTypeBankAndFloating(const char *name, enum eSectionType type, int b
 }
 
 unsigned int
-AssignSectionAddressByName(const char *name, unsigned int address)
+AssignSectionAddressAndBankByName(const char *name, unsigned int address, int bank)
 {
 	struct sSection *pSection;
 
@@ -254,7 +271,10 @@ AssignSectionAddressByName(const char *name, unsigned int address)
 			if (strcmp(pSection->pzName, name) == 0) {
 				if (pSection->nOrg != -1 || pSection->nAlign != 1)
 					errx(1, "Section \"%s\" from linkerscript isn't floating.\n", name);
+				if (pSection->nBank != -1 && pSection->nBank != bank)
+					errx(1, "Section \"%s\" from linkerscript has different bank number than in the source.\n", name);
 				pSection->nOrg = address;
+				pSection->nBank = bank;
 				pSection->nAlign = -1;
 				return pSection->nByteSize;
 			}
@@ -274,7 +294,7 @@ VerifyAndSetBank(struct sSection *pSection)
 		&& pSection->nBank < SECT_ATTRIBUTES[pSection->Type].minBank + SECT_ATTRIBUTES[pSection->Type].bankCount) {
 		pSection->nBank += SECT_ATTRIBUTES[pSection->Type].bank + SECT_ATTRIBUTES[pSection->Type].offset;
 		return true;
-		
+
 	} else {
 		return false;
 	}
@@ -308,7 +328,7 @@ void
 AssignFloatingBankSections(enum eSectionType type)
 {
 	ensureSectionTypeIsValid(type);
-	
+
 	struct sSection *pSection;
 
 	while ((pSection = FindLargestSection(type, false))) {
@@ -327,7 +347,7 @@ AssignFloatingBankSections(enum eSectionType type)
 			if (SECT_ATTRIBUTES[pSection->Type].bankCount > 1) {
 				locality = "in any bank";
 			}
-			
+
 			if (pSection->nAlign <= 1) {
 				errx(1, "Unable to place '%s' (%s section) %s",
 					 pSection->pzName, SECT_ATTRIBUTES[type].name, locality);
@@ -336,7 +356,7 @@ AssignFloatingBankSections(enum eSectionType type)
 					 pSection->pzName, SECT_ATTRIBUTES[type].name, locality, pSection->nAlign);
 			}
 		}
-	}	
+	}
 }
 
 char *tzLinkerscriptName = NULL;
@@ -370,7 +390,7 @@ AssignSections(void)
 		if (i == BANK_ROM0) {
 			/* ROM0 bank */
 			BankFree[i]->nOrg = 0x0000;
-			if (options & OPT_SMALL) {
+			if (options & OPT_TINY) {
 				BankFree[i]->nSize = 0x8000;
 			} else {
 				BankFree[i]->nSize = 0x4000;
@@ -378,15 +398,7 @@ AssignSections(void)
 		} else if (i >= BANK_ROMX && i < BANK_ROMX + BANK_COUNT_ROMX) {
 			/* Swappable ROM bank */
 			BankFree[i]->nOrg = 0x4000;
-			/*
-			 * Now, this shouldn't really be necessary... but for
-			 * good measure we'll do it anyway.
-			 */
-			if (options & OPT_SMALL) {
-				BankFree[i]->nSize = 0;
-			} else {
-				BankFree[i]->nSize = 0x4000;
-			}
+			BankFree[i]->nSize = 0x4000;
 		} else if (i == BANK_WRAM0) {
 			/* WRAM */
 			BankFree[i]->nOrg = 0xC000;
@@ -422,7 +434,7 @@ AssignSections(void)
 		} else {
 			errx(1, "(INTERNAL) Unknown bank type!");
 		}
-		
+
 		MaxAvail[i] = BankFree[i]->nSize;
 		BankFree[i]->pPrev = NULL;
 		BankFree[i]->pNext = NULL;
@@ -447,10 +459,6 @@ AssignSections(void)
 		if ((pSection->nOrg != -1 || pSection->nBank != -1)
 		    && pSection->oAssigned == 0) {
 			/* User wants to have a say... */
-
-			if (pSection->Type == SECT_WRAMX && options & OPT_CONTWRAM) {
-				errx(1, "WRAMX not compatible with -w!");
-			}
 
 			switch (pSection->Type) {
 			case SECT_WRAM0:
@@ -523,7 +531,7 @@ AssignSections(void)
 				pSection->oAssigned = 1;
 				DOMAXBANK(pSection->Type, pSection->nBank);
 				break;
-					
+
 			default: // Handle other sections later
 				break;
 			}
@@ -542,7 +550,7 @@ AssignSections(void)
 	}
 }
 
-void 
+void
 CreateSymbolTable(void)
 {
 	struct sSection *pSect;

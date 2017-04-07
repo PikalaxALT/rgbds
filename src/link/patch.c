@@ -13,19 +13,19 @@ SLONG rpnstack[256];
 SLONG rpnp;
 SLONG nPC;
 
-void 
+void
 rpnpush(SLONG i)
 {
 	rpnstack[rpnp++] = i;
 }
 
-SLONG 
+SLONG
 rpnpop(void)
 {
 	return (rpnstack[--rpnp]);
 }
 
-SLONG 
+SLONG
 getsymvalue(SLONG symid)
 {
 	switch (pCurrentSection->tSymbols[symid]->Type) {
@@ -51,7 +51,7 @@ getsymvalue(SLONG symid)
 	errx(1, "*INTERNAL* UNKNOWN SYMBOL TYPE");
 }
 
-SLONG 
+SLONG
 getsymbank(SLONG symid)
 {
 	SLONG nBank;
@@ -68,18 +68,21 @@ getsymbank(SLONG symid)
 		errx(1, "*INTERNAL* UNKNOWN SYMBOL TYPE");
 	}
 
-	if (nBank == BANK_WRAM0 || nBank == BANK_OAM) return 0;
-	if (nBank >= BANK_WRAMX && nBank < (BANK_WRAMX + BANK_COUNT_WRAMX))
+	if (nBank == BANK_WRAM0 || nBank == BANK_ROM0 || nBank == BANK_OAM ||
+			nBank == BANK_HRAM) {
+		return 0;
+	} else if (nBank >= BANK_WRAMX && nBank < (BANK_WRAMX + BANK_COUNT_WRAMX)) {
 		return nBank - BANK_WRAMX + 1;
-	if (nBank >= BANK_VRAM && nBank < (BANK_VRAM + BANK_COUNT_VRAM))
+	} else if (nBank >= BANK_VRAM && nBank < (BANK_VRAM + BANK_COUNT_VRAM)) {
 		return nBank - BANK_VRAM;
-	if (nBank >= BANK_SRAM && nBank < (BANK_SRAM + BANK_COUNT_SRAM))
+	} else if (nBank >= BANK_SRAM && nBank < (BANK_SRAM + BANK_COUNT_SRAM)) {
 		return nBank - BANK_SRAM;
+	}
 
 	return nBank;
 }
 
-SLONG 
+SLONG
 calcrpn(struct sPatch * pPatch)
 {
 	SLONG t, size;
@@ -175,15 +178,6 @@ calcrpn(struct sPatch * pPatch)
 				    pPatch->pzFilename, pPatch->nLineNo);
 			}
 			break;
-		case RPN_PCEZP:
-			t = rpnpop();
-			rpnpush(t & 0xFF);
-			if (t < 0x2000 || t > 0x20FF) {
-				errx(1,
-				    "%s(%ld) : Value must be in the ZP area",
-				    pPatch->pzFilename, pPatch->nLineNo);
-			}
-			break;
 		case RPN_CONST:
 			/* constant */
 			t = (*rpn++);
@@ -240,7 +234,7 @@ calcrpn(struct sPatch * pPatch)
 	return (rpnpop());
 }
 
-void 
+void
 Patch(void)
 {
 	struct sSection *pSect;

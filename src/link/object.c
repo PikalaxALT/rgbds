@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "extern/err.h"
+#include "link/assign.h"
 #include "link/mylink.h"
 #include "link/main.h"
 
@@ -28,7 +29,7 @@ enum ObjectFileContents {
  *
  */
 
-SLONG 
+SLONG
 readlong(FILE * f)
 {
 	SLONG r;
@@ -41,7 +42,7 @@ readlong(FILE * f)
 	return (r);
 }
 
-UWORD 
+UWORD
 readword(FILE * f)
 {
 	UWORD r;
@@ -59,19 +60,19 @@ readword(FILE * f)
 SLONG
 readasciiz(char **dest, FILE *f)
 {
-	SLONG r = 0;
-	
+	size_t r = 0;
+
 	size_t bufferLength = 16;
 	char *start = malloc(bufferLength);
 	char *s = start;
-	
+
 	if (!s) {
 		err(1, NULL);
 	}
-		
+
 	while (((*s++) = fgetc(f)) != 0) {
 		r += 1;
-		
+
 		if (r >= bufferLength) {
 			bufferLength *= 2;
 			start = realloc(start, bufferLength);
@@ -81,7 +82,7 @@ readasciiz(char **dest, FILE *f)
 			s = start + r;
 		}
 	}
-	
+
 	*dest = start;
 	return (r + 1);
 }
@@ -155,11 +156,13 @@ obj_ReadRGB0Section(FILE * f)
 	pSection->nBank = -1;
 	pSection->nAlign = 1;
 
-	/* does the user want the -s mode? */
-
-	if ((options & OPT_SMALL) && (pSection->Type == SECT_ROMX)) {
-		pSection->Type = SECT_ROM0;
+	if ((options & OPT_TINY) && (pSection->Type == SECT_ROMX)) {
+		errx(1, "ROMX sections can't be used with option -t.");
 	}
+	if ((options & OPT_CONTWRAM) && (pSection->Type == SECT_WRAMX)) {
+		errx(1, "WRAMX sections can't be used with option -w.");
+	}
+
 	if ((pSection->Type == SECT_ROMX) || (pSection->Type == SECT_ROM0)) {
 		/*
 		 * These sectiontypes contain data...
@@ -223,7 +226,7 @@ obj_ReadRGB0Section(FILE * f)
 	return pSection;
 }
 
-void 
+void
 obj_ReadRGB0(FILE * pObjfile)
 {
 	struct sSection *pFirstSection;
@@ -288,30 +291,37 @@ obj_ReadRGBSection(FILE * f, enum ObjectFileContents contents)
 {
 	struct sSection *pSection;
 
-	pSection = AllocSection();
+	char * pzName;
 
 	if (contents & CONTAINS_SECTION_NAME) {
-		readasciiz(&pSection->pzName, f);
+		readasciiz(&pzName, f);
+		if (IsSectionNameInUse(pzName))
+			errx(1, "Section name \"%s\" is already in use.", pzName);
 	} else {
-		pSection->pzName = "";
+		pzName = "";
 	}
+
+	pSection = AllocSection();
+	pSection->pzName = pzName;
 
 	pSection->nByteSize = readlong(f);
 	pSection->Type = (enum eSectionType) fgetc(f);
 	pSection->nOrg = readlong(f);
 	pSection->nBank = readlong(f);
-	
+
 	if (contents & CONTAINS_SECTION_ALIGNMENT) {
 		pSection->nAlign = readlong(f);
 	} else {
 		pSection->nAlign = 1;
 	}
 
-	/* does the user want the -s mode? */
-
-	if ((options & OPT_SMALL) && (pSection->Type == SECT_ROMX)) {
-		pSection->Type = SECT_ROM0;
+	if ((options & OPT_TINY) && (pSection->Type == SECT_ROMX)) {
+		errx(1,  "ROMX sections can't be used with option -t.");
 	}
+	if ((options & OPT_CONTWRAM) && (pSection->Type == SECT_WRAMX)) {
+		errx(1, "WRAMX sections can't be used with option -w.");
+	}
+
 	if ((pSection->Type == SECT_ROMX) || (pSection->Type == SECT_ROM0)) {
 		/*
 		 * These sectiontypes contain data...
@@ -369,7 +379,7 @@ obj_ReadRGBSection(FILE * f, enum ObjectFileContents contents)
 	return pSection;
 }
 
-void 
+void
 obj_ReadRGB(FILE * pObjfile, enum ObjectFileContents contents)
 {
 	struct sSection *pFirstSection;
@@ -429,7 +439,7 @@ obj_ReadRGB(FILE * pObjfile, enum ObjectFileContents contents)
  *
  */
 
-void 
+void
 obj_ReadOpenFile(FILE * pObjfile, char *tzObjectfile)
 {
 	char tzHeader[8];
@@ -458,7 +468,7 @@ obj_ReadOpenFile(FILE * pObjfile, char *tzObjectfile)
 	}
 }
 
-void 
+void
 obj_Readfile(char *tzObjectfile)
 {
 	FILE *pObjfile;
@@ -478,7 +488,7 @@ obj_Readfile(char *tzObjectfile)
 	oReadLib = 0;
 }
 
-SLONG 
+SLONG
 file_Length(FILE * f)
 {
 	ULONG r, p;
@@ -491,7 +501,7 @@ file_Length(FILE * f)
 	return (r);
 }
 
-void 
+void
 lib_ReadXLB0(FILE * f)
 {
 	SLONG size;

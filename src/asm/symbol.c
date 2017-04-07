@@ -23,7 +23,7 @@ char SavedTIME[256];
 char SavedDATE[256];
 bool exportall;
 
-SLONG 
+SLONG
 Callback_NARG(struct sSymbol * sym)
 {
 	ULONG i = 0;
@@ -37,7 +37,7 @@ Callback_NARG(struct sSymbol * sym)
 /*
  * Get the nValue field of a symbol
  */
-SLONG 
+SLONG
 getvaluefield(struct sSymbol * sym)
 {
 	if (sym->Callback) {
@@ -49,7 +49,7 @@ getvaluefield(struct sSymbol * sym)
 /*
  * Calculate the hash value for a string
  */
-ULONG 
+ULONG
 calchash(char *s)
 {
 	ULONG hash = 5381;
@@ -153,7 +153,7 @@ sym_FindSymbol(char *tzName)
 /*
  * Purge a symbol
  */
-void 
+void
 sym_Purge(char *tzName)
 {
 	struct sSymbol **ppSym;
@@ -184,7 +184,7 @@ sym_Purge(char *tzName)
 /*
  * Determine if a symbol has been defined
  */
-ULONG 
+ULONG
 sym_isConstDefined(char *tzName)
 {
 	struct sSymbol *psym, *pscope;
@@ -208,7 +208,7 @@ sym_isConstDefined(char *tzName)
 	return (0);
 }
 
-ULONG 
+ULONG
 sym_isDefined(char *tzName)
 {
 	struct sSymbol *psym, *pscope;
@@ -229,7 +229,7 @@ sym_isDefined(char *tzName)
 /*
  * Determine if the symbol is a constant
  */
-ULONG 
+ULONG
 sym_isConstant(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -266,7 +266,7 @@ sym_GetStringValue(char *tzSym)
 /*
  * Return a constant symbols value
  */
-ULONG 
+ULONG
 sym_GetConstantValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -292,7 +292,7 @@ sym_GetConstantValue(char *s)
 /*
  * Return a symbols value... "estimated" if not defined yet
  */
-ULONG 
+ULONG
 sym_GetValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -331,7 +331,7 @@ sym_GetValue(char *s)
 /*
  * Return a defined symbols value... aborts if not defined yet
  */
-ULONG 
+ULONG
 sym_GetDefinedValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -360,7 +360,7 @@ sym_GetDefinedValue(char *s)
 /*
  * Macro argument stuff
  */
-void 
+void
 sym_ShiftCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -378,12 +378,13 @@ sym_FindMacroArg(SLONG i)
 	if (i == -1)
 		i = MAXMACROARGS + 1;
 
-	assert(i-1 >= 0 &&
-	    i-1 < sizeof currentmacroargs / sizeof *currentmacroargs);
+	assert(i-1 >= 0);
+	assert((size_t)(i-1) < sizeof(currentmacroargs)/sizeof(*currentmacroargs));
+
 	return (currentmacroargs[i - 1]);
 }
 
-void 
+void
 sym_UseNewMacroArgs(void)
 {
 	SLONG i;
@@ -394,7 +395,7 @@ sym_UseNewMacroArgs(void)
 	}
 }
 
-void 
+void
 sym_SaveCurrentMacroArgs(char *save[])
 {
 	SLONG i;
@@ -403,7 +404,7 @@ sym_SaveCurrentMacroArgs(char *save[])
 		save[i] = currentmacroargs[i];
 }
 
-void 
+void
 sym_RestoreCurrentMacroArgs(char *save[])
 {
 	SLONG i;
@@ -412,7 +413,7 @@ sym_RestoreCurrentMacroArgs(char *save[])
 		currentmacroargs[i] = save[i];
 }
 
-void 
+void
 sym_FreeCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -423,7 +424,7 @@ sym_FreeCurrentMacroArgs(void)
 	}
 }
 
-void 
+void
 sym_AddNewMacroArg(char *s)
 {
 	SLONG i = 0;
@@ -440,7 +441,7 @@ sym_AddNewMacroArg(char *s)
 		yyerror("A maximum of %d arguments allowed", MAXMACROARGS);
 }
 
-void 
+void
 sym_SetMacroArgID(ULONG nMacroCount)
 {
 	char s[256];
@@ -449,7 +450,7 @@ sym_SetMacroArgID(ULONG nMacroCount)
 	newmacroargs[MAXMACROARGS] = strdup(s);
 }
 
-void 
+void
 sym_UseCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -470,7 +471,7 @@ sym_FindMacro(char *s)
 /*
  * Add an equated symbol
  */
-void 
+void
 sym_AddEqu(char *tzSym, SLONG value)
 {
 	if ((nPass == 1)
@@ -496,7 +497,7 @@ sym_AddEqu(char *tzSym, SLONG value)
 /*
  * Add a string equated symbol
  */
-void 
+void
 sym_AddString(char *tzSym, char *tzValue)
 {
 	struct sSymbol *nsym;
@@ -522,7 +523,7 @@ sym_AddString(char *tzSym, char *tzValue)
 /*
  * check if symbol is a string equated symbol
  */
-ULONG 
+ULONG
 sym_isString(char *tzSym)
 {
 	struct sSymbol *pSym;
@@ -537,7 +538,7 @@ sym_isString(char *tzSym)
 /*
  * Alter a SET symbols value
  */
-void 
+void
 sym_AddSet(char *tzSym, SLONG value)
 {
 	struct sSymbol *nsym;
@@ -556,7 +557,7 @@ sym_AddSet(char *tzSym, SLONG value)
 /*
  * Add a local (.name) relocatable symbol
  */
-void 
+void
 sym_AddLocalReloc(char *tzSym)
 {
 	if ((nPass == 1)
@@ -590,7 +591,7 @@ sym_AddLocalReloc(char *tzSym)
 /*
  * Add a relocatable symbol
  */
-void 
+void
 sym_AddReloc(char *tzSym)
 {
 	if ((nPass == 1)
@@ -619,9 +620,52 @@ sym_AddReloc(char *tzSym)
 }
 
 /*
+ * Check if the subtraction of two symbols is defined. That is, either both
+ * symbols are defined and the result is a constant, or both symbols are
+ * relocatable and belong to the same section.
+ *
+ * It returns 1 if the difference is defined, 0 if not.
+ */
+int
+sym_IsRelocDiffDefined(char *tzSym1, char *tzSym2)
+{
+	/* Do nothing the first pass. */
+	if (nPass != 2)
+		return 1;
+
+	struct sSymbol *nsym1, *nsym2;
+
+	/* Do the symbols exist? */
+	if ((nsym1 = sym_FindSymbol(tzSym1)) == NULL)
+		fatalerror("Symbol \"%s\" isn't defined.", tzSym1);
+	if ((nsym2 = sym_FindSymbol(tzSym2)) == NULL)
+		fatalerror("Symbol \"%s\" isn't defined.", tzSym2);
+
+	int s1reloc = (nsym1->nType & SYMF_RELOC) != 0;
+	int s2reloc = (nsym2->nType & SYMF_RELOC) != 0;
+
+	/* Both are non-relocatable */
+	if (!s1reloc && !s2reloc) return 1;
+
+	/* One of them relocatable, the other one not. */
+	if (s1reloc ^ s2reloc) return 0;
+
+	/* Both of them are relocatable. Make sure they are defined (internal
+         * coherency with sym_AddReloc and sym_AddLocalReloc). */
+	if (!(nsym1->nType & SYMF_DEFINED))
+		fatalerror("Relocatable symbol \"%s\" isn't defined.", tzSym1);
+	if (!(nsym2->nType & SYMF_DEFINED))
+		fatalerror("Relocatable symbol \"%s\" isn't defined.", tzSym2);
+
+	/* Both of them must be in the same section for the difference to be
+         * defined. */
+	return nsym1->pSection == nsym2->pSection;
+}
+
+/*
  * Export a symbol
  */
-void 
+void
 sym_Export(char *tzSym)
 {
 	if (nPass == 1) {
@@ -648,7 +692,7 @@ sym_Export(char *tzSym)
 /*
  * Import a symbol
  */
-void 
+void
 sym_Import(char *tzSym)
 {
 	if (nPass == 1) {
@@ -666,7 +710,7 @@ sym_Import(char *tzSym)
 /*
  * Globalize a symbol (export if defined, import if not)
  */
-void 
+void
 sym_Global(char *tzSym)
 {
 	if (nPass == 2) {
@@ -691,7 +735,7 @@ sym_Global(char *tzSym)
 /*
  * Add a macro definition
  */
-void 
+void
 sym_AddMacro(char *tzSym)
 {
 	if ((nPass == 1)
@@ -716,7 +760,7 @@ sym_AddMacro(char *tzSym)
 	}
 }
 
-/* 
+/*
  * Set whether to export all relocable symbols by default
  */
 void sym_SetExportAll(BBOOL set) {
@@ -726,7 +770,7 @@ void sym_SetExportAll(BBOOL set) {
 /*
  * Prepare for pass #1
  */
-void 
+void
 sym_PrepPass1(void)
 {
 	sym_Init();
@@ -735,7 +779,7 @@ sym_PrepPass1(void)
 /*
  * Prepare for pass #2
  */
-void 
+void
 sym_PrepPass2(void)
 {
 	SLONG i;
@@ -765,14 +809,14 @@ sym_PrepPass2(void)
 	sym_AddEqu("_NARG", 0);
 	p_NARGSymbol = findsymbol("_NARG", NULL);
 	p_NARGSymbol->Callback = Callback_NARG;
-	
+
 	math_DefinePI();
 }
 
 /*
  * Initialize the symboltable
  */
-void 
+void
 sym_Init(void)
 {
 	SLONG i;

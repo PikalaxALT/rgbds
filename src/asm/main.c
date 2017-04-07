@@ -42,7 +42,7 @@ struct sOptionStackEntry {
 
 struct sOptionStackEntry *pOptionStack = NULL;
 
-void 
+void
 opt_SetCurrentOptions(struct sOptions * pOpt)
 {
 	if (nGBGfxID != -1) {
@@ -105,7 +105,7 @@ opt_SetCurrentOptions(struct sOptions * pOpt)
 	}
 }
 
-void 
+void
 opt_Parse(char *s)
 {
 	struct sOptions newopt;
@@ -154,7 +154,7 @@ opt_Parse(char *s)
 	opt_SetCurrentOptions(&newopt);
 }
 
-void 
+void
 opt_Push(void)
 {
 	struct sOptionStackEntry *pOpt;
@@ -167,7 +167,7 @@ opt_Push(void)
 		fatalerror("No memory for option stack");
 }
 
-void 
+void
 opt_Pop(void)
 {
 	if (pOptionStack) {
@@ -226,15 +226,15 @@ opt_ParseDefines()
 void
 verror(const char *fmt, va_list args)
 {
-	fprintf(stderr, "ERROR:\t");
+	fprintf(stderr, "ERROR: ");
 	fstk_Dump();
-	fprintf(stderr, " :\n\t");
+	fprintf(stderr, ":\n\t");
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
 	nErrors += 1;
 }
 
-void 
+void
 yyerror(const char *fmt, ...)
 {
 	va_list args;
@@ -243,7 +243,7 @@ yyerror(const char *fmt, ...)
 	va_end(args);
 }
 
-void 
+void
 fatalerror(const char *fmt, ...)
 {
 	va_list args;
@@ -253,7 +253,25 @@ fatalerror(const char *fmt, ...)
 	exit(5);
 }
 
-static void 
+void
+warning(const char *fmt, ...)
+{
+	if (!CurrentOptions.warnings)
+		return;
+
+	va_list args;
+	va_start(args, fmt);
+
+	fprintf(stderr, "warning: ");
+	fstk_Dump();
+	fprintf(stderr, ":\n\t");
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
+
+	va_end(args);
+}
+
+static void
 usage(void)
 {
 	printf(
@@ -262,7 +280,7 @@ usage(void)
 	exit(1);
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
 	int ch;
@@ -283,7 +301,7 @@ main(int argc, char *argv[])
 	if (argc == 1)
 		usage();
 
-	progname = argv[0];
+	progname = "rgbasm";
 
 	/* yydebug=1; */
 
@@ -297,12 +315,13 @@ main(int argc, char *argv[])
 	DefaultOptions.verbose = false;
 	DefaultOptions.haltnop = true;
 	DefaultOptions.exportall = false;
+	DefaultOptions.warnings = true;
 
 	opt_SetCurrentOptions(&DefaultOptions);
 
 	newopt = CurrentOptions;
 
-	while ((ch = getopt(argc, argv, "b:D:g:hi:o:p:vE")) != -1) {
+	while ((ch = getopt(argc, argv, "b:D:g:hi:o:p:vEw")) != -1) {
 		switch (ch) {
 		case 'b':
 			if (strlen(optarg) == 2) {
@@ -351,6 +370,9 @@ main(int argc, char *argv[])
 			break;
 		case 'E':
 			newopt.exportall = true;
+			break;
+		case 'w':
+			newopt.warnings = false;
 			break;
 		default:
 			usage();
