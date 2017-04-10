@@ -397,9 +397,9 @@ main(int argc, char *argv[])
 			headbyte++;
 		}
 
-		if (tppspec && newsize > 0x40000000) /* ROM is bigger than 1GiB */
+		if (tppspec && (newsize > 0x40000000)) /* ROM is bigger than 1GiB */
 			warnx("ROM size is bigger than 1GiB");
-		else if (newsize > 0x800000) /* ROM is bigger than 8MiB */
+		else if (!tppspec && (newsize > 0x800000)) /* ROM is bigger than 8MiB */
 			warnx("ROM size is bigger than 8MiB");
 
 		buf = malloc(newsize - romsize);
