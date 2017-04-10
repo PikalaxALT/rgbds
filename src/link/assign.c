@@ -402,7 +402,7 @@ AssignSections(void)
 		} else if (i == BANK_WRAM0) {
 			/* WRAM */
 			BankFree[i]->nOrg = 0xC000;
-			if (options & OPT_DMG_MODE) {
+			if (options & OPT_CONTWRAM) {
 				BankFree[i]->nSize = 0x2000;
 			} else {
 				BankFree[i]->nSize = 0x1000;
@@ -413,7 +413,7 @@ AssignSections(void)
 			BankFree[i]->nSize = 0x2000;
 		} else if (i >= BANK_WRAMX && i < BANK_WRAMX + BANK_COUNT_WRAMX) {
 			/* Swappable WRAM bank */
-			if (options & OPT_DMG_MODE) {
+			if (options & OPT_CONTWRAM) {
 				BankFree[i]->nOrg = 0xFFFF;
 				BankFree[i]->nSize = 0x0000;
 			} else {
@@ -480,7 +480,7 @@ AssignSections(void)
 				break;
 
 			case SECT_WRAMX:
-				if (options & OPT_DMG_MODE) {
+				if (options & OPT_CONTWRAM) {
 					errx(1, "Continuous WRAM specified but WRAMX section found");
 				}
 			case SECT_SRAM:

@@ -34,7 +34,7 @@ static void
 usage(void)
 {
 	printf(
-"usage: rgblink [-tw] [-l linkerscript] [-m mapfile] [-n symfile] [-O overlay]\n"
+"usage: rgblink [-tzw] [-l linkerscript] [-m mapfile] [-n symfile] [-O overlay]\n"
 "               [-o outfile] [-p pad_value] [-s symbol] file [...]\n");
 	exit(1);
 }
@@ -53,7 +53,7 @@ main(int argc, char *argv[])
 	if (argc == 1)
 		usage();
 
-	while ((ch = getopt(argc, argv, "l:m:n:o:O:p:s:tw")) != -1) {
+	while ((ch = getopt(argc, argv, "l:m:n:o:O:p:s:twz")) != -1) {
 		switch (ch) {
 		case 'l':
 			SetLinkerscriptName(optarg);
@@ -88,6 +88,9 @@ main(int argc, char *argv[])
 		case 't':
 			options |= OPT_TINY;
 			break;
+		case 'z':
+			options |= OPT_DMG_MODE;
+			// fallthrough
 		case 'w':
 			/*
 			 * Set to set WRAM as a single continuous block as on
@@ -96,7 +99,7 @@ main(int argc, char *argv[])
 			 * will raise an error. VRAM bank 1 can't be used if
 			 * this option is enabled either.
 			 */
-			options |= OPT_DMG_MODE;
+			options |= OPT_CONTWRAM;
 			break;
 		default:
 			usage();
