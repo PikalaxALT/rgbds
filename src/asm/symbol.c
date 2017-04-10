@@ -495,7 +495,16 @@ sym_AddEqu(char *tzSym, SLONG value)
 }
 
 /*
- * Add a string equated symbol
+ * Add a string equated symbol.
+ *
+ * If the desired symbol is a string it needs to be passed to this function with
+ * quotes inside the string, like sym_AddString("name", "\"test\"), or the
+ * assembler won't be able to use it with DB and similar. This is equivalent as
+ * ``` name EQUS "\"test\"" ```
+ *
+ * If the desired symbol is a register or a number, just the terminator quotes
+ * of the string are enough: sym_AddString("M_PI", "3.1415"). This is the same
+ * as ``` M_PI EQUS "3.1415" ```
  */
 void
 sym_AddString(char *tzSym, char *tzValue)
@@ -690,24 +699,6 @@ sym_Export(char *tzSym)
 }
 
 /*
- * Import a symbol
- */
-void
-sym_Import(char *tzSym)
-{
-	if (nPass == 1) {
-		/* only import symbols in pass 1 */
-		struct sSymbol *nsym;
-
-		if (findsymbol(tzSym, NULL)) {
-			yyerror("'%s' already defined", tzSym);
-		}
-		if ((nsym = createsymbol(tzSym)) != NULL)
-			nsym->nType |= SYMF_IMPORT;
-	}
-}
-
-/*
  * Globalize a symbol (export if defined, import if not)
  */
 void
@@ -842,8 +833,8 @@ sym_Init(void)
 		struct tm *tptr;
 
 		tptr = localtime(&tod);
-		strftime(SavedTIME, sizeof(SavedTIME), "%H:%M:%S", tptr);
-		strftime(SavedDATE, sizeof(SavedDATE), "%d %B %Y", tptr);
+		strftime(SavedTIME, sizeof(SavedTIME), "\"%H:%M:%S\"", tptr);
+		strftime(SavedDATE, sizeof(SavedDATE), "\"%d %B %Y\"", tptr);
 		sym_AddString("__TIME__", SavedTIME);
 		sym_AddString("__DATE__", SavedDATE);
 	}

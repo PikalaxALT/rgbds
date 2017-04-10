@@ -63,9 +63,9 @@ rgbgfx_obj = \
 all: rgbasm rgblink rgbfix rgbgfx
 
 clean:
-	$Q${RM} rgbds.html
+	$Q${RM} rgbds.html gbz80.html
 	$Q${RM} rgbasm rgbasm.exe ${rgbasm_obj} rgbasm.html
-	$Q${RM} rgblink rgblink.exe ${rgblink_obj} rgblink.html
+	$Q${RM} rgblink rgblink.exe ${rgblink_obj} rgblink.html rgblink-script.html
 	$Q${RM} rgbfix rgbfix.exe ${rgbfix_obj} rgbfix.html
 	$Q${RM} rgbgfx rgbgfx.exe ${rgbgfx_obj} rgbgfx.html
 	$Q${RM} src/asm/asmy.c src/asm/asmy.h
@@ -79,6 +79,7 @@ install: all
 	$Qinstall ${STRIP} -m ${BINMODE} rgbgfx ${DESTDIR}${bindir}/rgbgfx
 	$Qmkdir -p ${DESTDIR}${mandir}/man1 ${DESTDIR}${mandir}/man5 ${DESTDIR}${mandir}/man7
 	$Qinstall -m ${MANMODE} src/rgbds.7 ${DESTDIR}${mandir}/man7/rgbds.7
+	$Qinstall -m ${MANMODE} src/gbz80.7 ${DESTDIR}${mandir}/man7/gbz80.7
 	$Qinstall -m ${MANMODE} src/asm/rgbasm.1 ${DESTDIR}${mandir}/man1/rgbasm.1
 	$Qinstall -m ${MANMODE} src/fix/rgbfix.1 ${DESTDIR}${mandir}/man1/rgbfix.1
 	$Qinstall -m ${MANMODE} src/link/rgblink.1 ${DESTDIR}${mandir}/man1/rgblink.1
@@ -135,6 +136,7 @@ MANDOC =	-Thtml -Ios=General -Oman=/rgbds/manual/%N/ \
 
 wwwman:
 	$Qmandoc ${MANDOC} src/rgbds.7 | sed s/OpenBSD/General/ > rgbds.html
+	$Qmandoc ${MANDOC} src/gbz80.7 | sed s/OpenBSD/General/ > gbz80.html
 	$Qmandoc ${MANDOC} src/asm/rgbasm.1 | sed s/OpenBSD/General/ > \
 		rgbasm.html
 	$Qmandoc ${MANDOC} src/fix/rgbfix.1 | sed s/OpenBSD/General/ > \
