@@ -63,11 +63,11 @@ rgbgfx_obj = \
 all: rgbasm rgblink rgbfix rgbgfx
 
 clean:
-	$Q${RM} rgbds.html gbz80.html
-	$Q${RM} rgbasm rgbasm.exe ${rgbasm_obj} rgbasm.html
-	$Q${RM} rgblink rgblink.exe ${rgblink_obj} rgblink.html rgblink-script.html
-	$Q${RM} rgbfix rgbfix.exe ${rgbfix_obj} rgbfix.html
-	$Q${RM} rgbgfx rgbgfx.exe ${rgbgfx_obj} rgbgfx.html
+	$Q${RM} rgbds.7.html gbz80.7.html rgbds.5.html
+	$Q${RM} rgbasm rgbasm.exe ${rgbasm_obj} rgbasm.1.html rgbasm.5.html
+	$Q${RM} rgblink rgblink.exe ${rgblink_obj} rgblink.1.html rgblink.5.html
+	$Q${RM} rgbfix rgbfix.exe ${rgbfix_obj} rgbfix.1.html
+	$Q${RM} rgbgfx rgbgfx.exe ${rgbgfx_obj} rgbgfx.1.html
 	$Q${RM} src/asm/asmy.c src/asm/asmy.h
 	$Q${RM} src/link/lexer.c src/link/parser.c src/link/parser.h
 
@@ -80,7 +80,9 @@ install: all
 	$Qmkdir -p ${DESTDIR}${mandir}/man1 ${DESTDIR}${mandir}/man5 ${DESTDIR}${mandir}/man7
 	$Qinstall -m ${MANMODE} src/rgbds.7 ${DESTDIR}${mandir}/man7/rgbds.7
 	$Qinstall -m ${MANMODE} src/gbz80.7 ${DESTDIR}${mandir}/man7/gbz80.7
+	$Qinstall -m ${MANMODE} src/rgbds.5 ${DESTDIR}${mandir}/man5/rgbds.5
 	$Qinstall -m ${MANMODE} src/asm/rgbasm.1 ${DESTDIR}${mandir}/man1/rgbasm.1
+	$Qinstall -m ${MANMODE} src/asm/rgbasm.5 ${DESTDIR}${mandir}/man5/rgbasm.5
 	$Qinstall -m ${MANMODE} src/fix/rgbfix.1 ${DESTDIR}${mandir}/man1/rgbfix.1
 	$Qinstall -m ${MANMODE} src/link/rgblink.1 ${DESTDIR}${mandir}/man1/rgblink.1
 	$Qinstall -m ${MANMODE} src/link/rgblink.5 ${DESTDIR}${mandir}/man5/rgblink.5
@@ -121,29 +123,35 @@ src/link/parser.h : src/link/parser.c
 # If you're building on Windows with Cygwin or Mingw, just follow the Unix
 # install instructions instead.
 mingw:
-	$Qenv PATH=/usr/local/mingw32/bin:/bin:/usr/bin:/usr/local/bin \
-		make WARNFLAGS= CC=gcc CFLAGS="-I/usr/local/mingw32/include \
-			${CFLAGS}"
-	$Qmv rgbasm rgbasm.exe
-	$Qmv rgblink rgblink.exe
-	$Qmv rgbfix rgbfix.exe
-	$Qmv rgbgfx rgbgfx.exe
+	$Q${RM} win32 win64
+	$Qmkdir win32 win64
+	$Qenv make clean
+	$Qenv PKG_CONFIG_PATH=/usr/i686-w64-mingw32/sys-root/mingw/lib/pkgconfig/ \
+		make CC=i686-w64-mingw32-gcc YACC=bison WARNFLAGS= -j
+	$Qmv rgbasm win32/rgbasm.exe
+	$Qmv rgblink win32/rgblink.exe
+	$Qmv rgbfix win32/rgbfix.exe
+	$Qmv rgbgfx win32/rgbgfx.exe
+	$Qenv make clean
+	$Qenv PKG_CONFIG_PATH=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/pkgconfig/ \
+		make CC=x86_64-w64-mingw32-gcc YACC=bison WARNFLAGS= -j
+	$Qmv rgbasm win64/rgbasm.exe
+	$Qmv rgblink win64/rgblink.exe
+	$Qmv rgbfix win64/rgbfix.exe
+	$Qmv rgbgfx win64/rgbgfx.exe
+	$Qenv make clean
 
 # Below is a target for the project maintainer to easily create web manuals.
 # It relies on mandoc: http://mdocml.bsd.lv
-MANDOC =	-Thtml -Ios=General -Oman=/rgbds/manual/%N/ \
-			-Ostyle=/rgbds/manual/manual.css
+MANDOC =	-Thtml -Ios=General -Oman=%N.%S.html -Ostyle=manual.css
 
 wwwman:
-	$Qmandoc ${MANDOC} src/rgbds.7 | sed s/OpenBSD/General/ > rgbds.html
-	$Qmandoc ${MANDOC} src/gbz80.7 | sed s/OpenBSD/General/ > gbz80.html
-	$Qmandoc ${MANDOC} src/asm/rgbasm.1 | sed s/OpenBSD/General/ > \
-		rgbasm.html
-	$Qmandoc ${MANDOC} src/fix/rgbfix.1 | sed s/OpenBSD/General/ > \
-		rgbfix.html
-	$Qmandoc ${MANDOC} src/link/rgblink.1 | sed s/OpenBSD/General/ > \
-		rgblink.html
-	$Qmandoc ${MANDOC} src/link/rgblink.5 | sed s/OpenBSD/General/ > \
-		rgblink-script.html
-	$Qmandoc ${MANDOC} src/gfx/rgbgfx.1 | sed s/OpenBSD/General/ > \
-		rgbgfx.html
+	$Qmandoc ${MANDOC} src/rgbds.7 > rgbds.7.html
+	$Qmandoc ${MANDOC} src/gbz80.7 > gbz80.7.html
+	$Qmandoc ${MANDOC} src/rgbds.5 > rgbds.5.html
+	$Qmandoc ${MANDOC} src/asm/rgbasm.1 > rgbasm.1.html
+	$Qmandoc ${MANDOC} src/asm/rgbasm.5 > rgbasm.5.html
+	$Qmandoc ${MANDOC} src/fix/rgbfix.1 > rgbfix.1.html
+	$Qmandoc ${MANDOC} src/link/rgblink.1 > rgblink.1.html
+	$Qmandoc ${MANDOC} src/link/rgblink.5 > rgblink.5.html
+	$Qmandoc ${MANDOC} src/gfx/rgbgfx.1 > rgbgfx.1.html
