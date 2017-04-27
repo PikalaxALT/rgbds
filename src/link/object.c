@@ -160,13 +160,49 @@ obj_ReadRGBSection(FILE * f)
 		errx(1,  "ROMX sections can't be used with option -t.");
 	}
 	if ((options & OPT_CONTWRAM) && (pSection->Type == SECT_WRAMX)) {
-		errx(1, "WRAMX sections can't be used with option -w.");
+		errx(1, "WRAMX sections can't be used with options -w or -d.");
 	}
 	if (options & OPT_DMG_MODE) {
 		/* WRAMX sections are checked for OPT_CONTWRAM */
 		if (pSection->Type == SECT_VRAM && pSection->nBank == 1) {
-			errx(1, "VRAM bank 1 can't be used with option -z.");
+			errx(1, "VRAM bank 1 can't be used with option -d.");
 		}
+	}
+
+	unsigned int maxsize = 0;
+
+	/* Verify that the section isn't too big */
+	switch (pSection->Type)
+	{
+		case SECT_ROM0:
+			maxsize = (options & OPT_TINY) ? 0x8000 : 0x4000;
+			break;
+		case SECT_ROMX:
+			maxsize = 0x4000;
+			break;
+		case SECT_VRAM:
+		case SECT_SRAM:
+			maxsize = 0x2000;
+			break;
+		case SECT_WRAM0:
+			maxsize = (options & OPT_CONTWRAM) ? 0x2000 : 0x1000;
+			break;
+		case SECT_WRAMX:
+			maxsize = 0x1000;
+			break;
+		case SECT_OAM:
+			maxsize = 0xA0;
+			break;
+		case SECT_HRAM:
+			maxsize = 0x7F;
+			break;
+		default:
+			errx(1, "Section \"%s\" has an invalid section type.", pzName);
+			break;
+	}
+	if (pSection->nByteSize > maxsize) {
+		errx(1, "Section \"%s\" is bigger than the max size for that type: 0x%X > 0x%X",
+			pzName, pSection->nByteSize, maxsize);
 	}
 
 	if ((pSection->Type == SECT_ROMX) || (pSection->Type == SECT_ROM0)) {
@@ -338,25 +374,4 @@ file_Length(FILE * f)
 	fseek(f, p, SEEK_SET);
 
 	return (r);
-}
-
-void
-lib_ReadXLB0(FILE * f)
-{
-	SLONG size;
-
-	size = file_Length(f) - 4;
-	while (size) {
-		char *name;
-
-		size -= readasciiz(&name, f);
-		readword(f);
-		size -= 2;
-		readword(f);
-		size -= 2;
-		size -= readlong(f);
-		size -= 4;
-		obj_ReadOpenFile(f, name);
-		free(name);
-	}
 }
