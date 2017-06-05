@@ -24,8 +24,6 @@ SLONG options = 0;
 SLONG fillchar = 0;
 char *smartlinkstartsymbol;
 
-char *progname;
-
 /*
  * Print the usagescreen
  *
@@ -35,8 +33,8 @@ static void
 usage(void)
 {
 	printf(
-"usage: rgblink [-tw] [-m mapfile] [-n symfile] [-o outfile] [-p pad_value]\n"
-"               [-s symbol] file [...]\n");
+"usage: rgblink [-twd] [-l linkerscript] [-m mapfile] [-n symfile] [-O overlay]\n"
+"               [-o outfile] [-p pad_value] [-s symbol] file [...]\n");
 	exit(1);
 }
 
@@ -54,10 +52,11 @@ main(int argc, char *argv[])
 	if (argc == 1)
 		usage();
 
-	progname = argv[0];
-
-	while ((ch = getopt(argc, argv, "m:n:o:p:s:t:w")) != -1) {
+	while ((ch = getopt(argc, argv, "l:m:n:o:O:p:s:twd")) != -1) {
 		switch (ch) {
+		case 'l':
+			SetLinkerscriptName(optarg);
+			break;
 		case 'm':
 			SetMapfileName(optarg);
 			break;
@@ -66,6 +65,10 @@ main(int argc, char *argv[])
 			break;
 		case 'o':
 			out_Setname(optarg);
+			break;
+		case 'O':
+			out_SetOverlayname(optarg);
+			options |= OPT_OVERLAY;
 			break;
 		case 'p':
 			fillchar = strtoul(optarg, &ep, 0);
@@ -82,12 +85,25 @@ main(int argc, char *argv[])
 			smartlinkstartsymbol = optarg;
 			break;
 		case 't':
-			options |= OPT_SMALL;
+			options |= OPT_TINY;
 			break;
+		case 'd':
+			/*
+			 * Set to set WRAM as a single continuous block as on
+			 * DMG. All WRAM sections must be WRAM0 as bankable WRAM
+			 * sections do not exist in this mode. A WRAMX section
+			 * will raise an error. VRAM bank 1 can't be used if
+			 * this option is enabled either.
+			 *
+			 * This option implies OPT_CONTWRAM.
+			 */
+			options |= OPT_DMG_MODE;
+			/* fallthrough */
 		case 'w':
-			/* Set to set WRAM as a single continuous block as on DMG.
-			All WRAM sections must be WRAM0 as bankable WRAM sections do
-			not exist in this mode. A WRAMX section will raise an error. */
+			/* Set to set WRAM as a single continuous block as on
+			 * DMG. All WRAM sections must be WRAM0 as bankable WRAM
+			 * sections do not exist in this mode. A WRAMX section
+			 * will raise an error. */
 			options |= OPT_CONTWRAM;
 			break;
 		default:

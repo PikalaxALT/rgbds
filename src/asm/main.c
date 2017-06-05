@@ -20,13 +20,14 @@ int cldefines_index;
 int cldefines_size;
 char **cldefines;
 
-char *progname;
-
 clock_t nStartClock, nEndClock;
 SLONG nLineNo;
 ULONG nTotalLines, nPass, nPC, nIFDepth, nErrors;
 
 extern int yydebug;
+
+FILE *dependfile;
+extern char *tzObjectname;
 
 /*
  * Option stack
@@ -42,7 +43,7 @@ struct sOptionStackEntry {
 
 struct sOptionStackEntry *pOptionStack = NULL;
 
-void 
+void
 opt_SetCurrentOptions(struct sOptions * pOpt)
 {
 	if (nGBGfxID != -1) {
@@ -105,7 +106,7 @@ opt_SetCurrentOptions(struct sOptions * pOpt)
 	}
 }
 
-void 
+void
 opt_Parse(char *s)
 {
 	struct sOptions newopt;
@@ -154,7 +155,7 @@ opt_Parse(char *s)
 	opt_SetCurrentOptions(&newopt);
 }
 
-void 
+void
 opt_Push(void)
 {
 	struct sOptionStackEntry *pOpt;
@@ -167,7 +168,7 @@ opt_Push(void)
 		fatalerror("No memory for option stack");
 }
 
-void 
+void
 opt_Pop(void)
 {
 	if (pOptionStack) {
@@ -226,15 +227,15 @@ opt_ParseDefines()
 void
 verror(const char *fmt, va_list args)
 {
-	fprintf(stderr, "ERROR:\t");
+	fprintf(stderr, "ERROR: ");
 	fstk_Dump();
-	fprintf(stderr, " :\n\t");
+	fprintf(stderr, ":\n\t");
 	vfprintf(stderr, fmt, args);
 	fprintf(stderr, "\n");
 	nErrors += 1;
 }
 
-void 
+void
 yyerror(const char *fmt, ...)
 {
 	va_list args;
@@ -243,7 +244,7 @@ yyerror(const char *fmt, ...)
 	va_end(args);
 }
 
-void 
+void
 fatalerror(const char *fmt, ...)
 {
 	va_list args;
@@ -253,16 +254,34 @@ fatalerror(const char *fmt, ...)
 	exit(5);
 }
 
-static void 
+void
+warning(const char *fmt, ...)
+{
+	if (!CurrentOptions.warnings)
+		return;
+
+	va_list args;
+	va_start(args, fmt);
+
+	fprintf(stderr, "warning: ");
+	fstk_Dump();
+	fprintf(stderr, ":\n\t");
+	vfprintf(stderr, fmt, args);
+	fprintf(stderr, "\n");
+
+	va_end(args);
+}
+
+static void
 usage(void)
 {
 	printf(
 "Usage: rgbasm [-hvE] [-b chars] [-Dname[=value]] [-g chars] [-i path]\n"
-"              [-o outfile] [-p pad_value] file.asm\n");
+"              [-M dependfile] [-o outfile] [-p pad_value] file.asm\n");
 	exit(1);
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
 	int ch;
@@ -271,6 +290,8 @@ main(int argc, char *argv[])
 	struct sOptions newopt;
 
 	char *tzMainfile;
+
+	dependfile = NULL;
 
 	cldefines_size = 32;
 	cldefines = reallocarray(cldefines, cldefines_size,
@@ -282,8 +303,6 @@ main(int argc, char *argv[])
 
 	if (argc == 1)
 		usage();
-
-	progname = argv[0];
 
 	/* yydebug=1; */
 
@@ -297,12 +316,13 @@ main(int argc, char *argv[])
 	DefaultOptions.verbose = false;
 	DefaultOptions.haltnop = true;
 	DefaultOptions.exportall = false;
+	DefaultOptions.warnings = true;
 
 	opt_SetCurrentOptions(&DefaultOptions);
 
 	newopt = CurrentOptions;
 
-	while ((ch = getopt(argc, argv, "b:D:g:hi:o:p:vE")) != -1) {
+	while ((ch = getopt(argc, argv, "b:D:g:hi:M:o:p:vEw")) != -1) {
 		switch (ch) {
 		case 'b':
 			if (strlen(optarg) == 2) {
@@ -333,6 +353,11 @@ main(int argc, char *argv[])
 		case 'i':
 			fstk_AddIncludePath(optarg);
 			break;
+		case 'M':
+			if ((dependfile = fopen(optarg, "w")) == NULL) {
+				err(1, "Could not open dependfile %s", optarg);
+			}
+			break;
 		case 'o':
 			out_SetFileName(optarg);
 			break;
@@ -351,6 +376,9 @@ main(int argc, char *argv[])
 			break;
 		case 'E':
 			newopt.exportall = true;
+			break;
+		case 'w':
+			newopt.warnings = false;
 			break;
 		default:
 			usage();
@@ -372,6 +400,13 @@ main(int argc, char *argv[])
 
 	if (CurrentOptions.verbose) {
 		printf("Assembling %s\n", tzMainfile);
+	}
+
+	if (dependfile) {
+		if (!tzObjectname)
+			errx(1, "Dependency files can only be created if an output object file is specified.\n");
+
+		fprintf(dependfile, "%s: %s\n", tzObjectname, tzMainfile);
 	}
 
 	nStartClock = clock();

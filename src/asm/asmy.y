@@ -118,7 +118,6 @@ ULONG	str2int2( char *s, int length )
 		r<<=8;
 		r|=(UBYTE)(s[i]);
 		i++;
-		
 	}
 	return( r );
 }
@@ -142,8 +141,9 @@ void	copyrept( void )
 {
 	SLONG	level=1, len, instring=0;
 	char	*src=pCurrentBuffer->pBuffer;
+	char	*bufferEnd = pCurrentBuffer->pBufferStart + pCurrentBuffer->nBufferSize;
 
-	while( *src && level )
+	while( src < bufferEnd && level )
 	{
 		if( instring==0 )
 		{
@@ -182,6 +182,10 @@ void	copyrept( void )
 		}
 	}
 
+	if (level != 0) {
+		fatalerror("Unterminated REPT block");
+	}
+
 	len=src-pCurrentBuffer->pBuffer-4;
 
 	src=pCurrentBuffer->pBuffer;
@@ -217,8 +221,9 @@ void	copymacro( void )
 {
 	SLONG	level=1, len, instring=0;
 	char	*src=pCurrentBuffer->pBuffer;
+	char	*bufferEnd = pCurrentBuffer->pBufferStart + pCurrentBuffer->nBufferSize;
 
-	while( *src && level )
+	while( src < bufferEnd && level )
 	{
 		if( instring==0 )
 		{
@@ -255,6 +260,10 @@ void	copymacro( void )
 				src+=1;
 			}
 		}
+	}
+
+	if (level != 0) {
+		fatalerror("Unterminated MACRO definition");
 	}
 
 	len=src-pCurrentBuffer->pBuffer-4;
@@ -348,6 +357,10 @@ void	if_skip_to_else( void )
 		}
 	}
 
+	if (level != 0) {
+		fatalerror("Unterminated IF construct");
+	}
+
 	len=src-pCurrentBuffer->pBuffer;
 
 	yyskipbytes( len );
@@ -403,6 +416,10 @@ void	if_skip_to_endc( void )
 		}
 	}
 
+	if (level != 0) {
+		fatalerror("Unterminated IF construct");
+	}
+
 	len=src-pCurrentBuffer->pBuffer;
 
 	yyskipbytes( len );
@@ -442,7 +459,7 @@ void	if_skip_to_endc( void )
 %left	T_OP_MUL T_OP_DIV T_OP_MOD
 %left	T_OP_NOT
 %left	T_OP_DEF
-%left	T_OP_BANK
+%left	T_OP_BANK T_OP_ALIGN
 %left	T_OP_SIN
 %left	T_OP_COS
 %left	T_OP_TAN
@@ -456,6 +473,7 @@ void	if_skip_to_endc( void )
 %left	T_OP_CEIL
 %left	T_OP_FLOOR
 
+%token	T_OP_HIGH T_OP_LOW
 
 %left	T_OP_STRCMP
 %left	T_OP_STRIN
@@ -495,13 +513,14 @@ void	if_skip_to_endc( void )
 %token	T_POP_POPO
 %token	T_POP_PUSHO
 %token	T_POP_OPT
-%token	T_SECT_WRAM0 T_SECT_VRAM T_SECT_ROMX T_SECT_ROM0 T_SECT_HRAM T_SECT_WRAMX T_SECT_SRAM
+%token	T_SECT_WRAM0 T_SECT_VRAM T_SECT_ROMX T_SECT_ROM0 T_SECT_HRAM T_SECT_WRAMX T_SECT_SRAM T_SECT_OAM
+%token	T_SECT_HOME T_SECT_DATA T_SECT_CODE T_SECT_BSS
 
 %token	T_Z80_ADC T_Z80_ADD T_Z80_AND
 %token	T_Z80_BIT
 %token	T_Z80_CALL T_Z80_CCF T_Z80_CP T_Z80_CPL
 %token	T_Z80_DAA T_Z80_DEC T_Z80_DI
-%token	T_Z80_EI T_Z80_EX
+%token	T_Z80_EI
 %token	T_Z80_HALT
 %token	T_Z80_INC
 %token	T_Z80_JP T_Z80_JR
@@ -519,11 +538,12 @@ void	if_skip_to_endc( void )
 %token	T_Z80_SLA T_Z80_SRA T_Z80_SRL T_Z80_SUB T_Z80_SWAP
 %token	T_Z80_XOR
 
-%token	T_MODE_A T_MODE_B T_MODE_C T_MODE_C_IND T_MODE_D T_MODE_E T_MODE_H T_MODE_L
+%token	T_TOKEN_A T_TOKEN_B T_TOKEN_C T_TOKEN_D T_TOKEN_E T_TOKEN_H T_TOKEN_L
 %token	T_MODE_AF
 %token	T_MODE_BC T_MODE_BC_IND
 %token	T_MODE_DE T_MODE_DE_IND
 %token	T_MODE_SP T_MODE_SP_IND
+%token	T_MODE_C_IND
 %token	T_MODE_HL T_MODE_HL_IND T_MODE_HL_INDDEC T_MODE_HL_INDINC
 %token	T_CC_NZ T_CC_Z T_CC_NC
 
@@ -661,7 +681,7 @@ fail : T_POP_FAIL string {
 	};
 
 warn : T_POP_WARN string {
-		yyerror("%s", $2);
+		warning("%s", $2);
 	};
 
 shift			:	T_POP_SHIFT
@@ -752,7 +772,13 @@ import_list		:	import_list_entry
 				|	import_list_entry ',' import_list
 ;
 
-import_list_entry	:	T_ID	{ sym_Import($1); }
+import_list_entry	:	T_ID	{
+						/* This is done automatically if
+						 * the label isn't found in the
+						 * list of defined symbols. */
+						if( nPass==1 )
+							warning("IMPORT is a deprecated keyword with no effect: %s", $1);
+					}
 ;
 
 export			:	T_POP_EXPORT export_list
@@ -974,6 +1000,10 @@ relocconst		:	T_ID
 						{ rpn_UNNEG(&$$,&$2); }
 				|	T_OP_NOT relocconst %prec NEG
 						{ rpn_UNNOT(&$$,&$2); }
+				|	T_OP_HIGH '(' relocconst ')'
+						{ rpn_HIGH(&$$, &$3); }
+				|	T_OP_LOW '(' relocconst ')'
+						{ rpn_LOW(&$$, &$3); }
 				|	T_OP_BANK '(' T_ID ')'
 						{ rpn_Bank(&$$,$3); $$.nVal = 0; }
 				|	T_OP_DEF { oDontExpandStrings = true; } '(' T_ID ')'
@@ -1022,9 +1052,14 @@ const			:	T_ID							{ $$ = sym_GetConstantValue($1); }
 				|	const T_OP_LOGICNE const 		{ $$ = $1 != $3; }
 				|	const T_OP_ADD const			{ $$ = $1 + $3; }
 				|	const T_OP_SUB const			{ $$ = $1 - $3; }
-				|	T_ID  T_OP_SUB T_ID				{ $$ = sym_GetDefinedValue($1) - sym_GetDefinedValue($3); }
+				|	T_ID  T_OP_SUB T_ID
+					{
+						if (sym_IsRelocDiffDefined($1, $3) == 0)
+							fatalerror("'%s - %s' not defined.", $1, $3);
+						$$ = sym_GetDefinedValue($1) - sym_GetDefinedValue($3);
+					}
 				|	const T_OP_XOR const			{ $$ = $1 ^ $3; }
-				|	const T_OP_OR const				{ $$ = $1 | $3; }
+				|	const T_OP_OR const			{ $$ = $1 | $3; }
 				|	const T_OP_AND const			{ $$ = $1 & $3; }
 				|	const T_OP_SHL const			{ $$ = $1 << $3; }
 				|	const T_OP_SHR const			{ $$ = $1 >> $3; }
@@ -1095,6 +1130,10 @@ section:
 			else
 				yyerror("Address $%x not 16-bit", $6);
 		}
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' const ']'
+		{
+			out_NewAlignedSection($2, $4, $8, -1);
+		}
 	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' const ']'
 		{
 			bankrangecheck($2, $4, -1, $8);
@@ -1106,6 +1145,14 @@ section:
 			}
 			bankrangecheck($2, $4, $6, $11);
 		}
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' const ']' ',' T_OP_BANK '[' const ']'
+		{
+			out_NewAlignedSection($2, $4, $8, $13);
+		}
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' const ']' ',' T_OP_ALIGN '[' const ']'
+		{
+			out_NewAlignedSection($2, $4, $13, $8);
+		}
 ;
 
 sectiontype:
@@ -1116,6 +1163,23 @@ sectiontype:
 	|	T_SECT_HRAM	{ $$=SECT_HRAM; }
 	|	T_SECT_WRAMX	{ $$=SECT_WRAMX; }
 	|	T_SECT_SRAM	{ $$=SECT_SRAM; }
+	|	T_SECT_OAM	{ $$=SECT_OAM; }
+	|	T_SECT_HOME	{
+					warning("HOME section name is deprecated, use ROM0 instead.");
+					$$=SECT_ROM0;
+				}
+	|	T_SECT_DATA	{
+					warning("DATA section name is deprecated, use ROMX instead.");
+					$$=SECT_ROMX;
+				}
+	|	T_SECT_CODE	{
+					warning("CODE section name is deprecated, use ROMX instead.");
+					$$=SECT_ROMX;
+				}
+	|	T_SECT_BSS	{
+					warning("BSS section name is deprecated, use WRAM0 instead.");
+					$$=SECT_WRAM0;
+				}
 ;
 
 
@@ -1131,7 +1195,6 @@ cpu_command		:	z80_adc
 				|	z80_dec
 				|	z80_di
 				|	z80_ei
-				|	z80_ex
 				|	z80_halt
 				|	z80_inc
 				|	z80_jp
@@ -1222,12 +1285,6 @@ z80_ei			:	T_Z80_EI
 					{ out_AbsByte(0xFB); }
 ;
 
-z80_ex			:	T_Z80_EX T_MODE_HL comma T_MODE_SP_IND
-					{ out_AbsByte(0xE3); }
-				|	T_Z80_EX T_MODE_SP_IND comma T_MODE_HL
-					{ out_AbsByte(0xE3); }
-;
-
 z80_halt: T_Z80_HALT
 		{
 			out_AbsByte(0x76);
@@ -1248,7 +1305,11 @@ z80_jp			:	T_Z80_JP const_16bit
 				|	T_Z80_JP ccode comma const_16bit
 					{ out_AbsByte(0xC2|($2<<3)); out_RelWord(&$4); }
 				|	T_Z80_JP T_MODE_HL_IND
-					{ out_AbsByte(0xE9); }
+					{
+						out_AbsByte(0xE9);
+						if( nPass==1 )
+							warning("'JP [HL]' is obsolete, use 'JP HL' instead.");
+					}
 				|	T_Z80_JP T_MODE_HL
 					{ out_AbsByte(0xE9); }
 ;
@@ -1262,7 +1323,11 @@ z80_jr			:	T_Z80_JR const_PCrel
 z80_ldi			:	T_Z80_LDI T_MODE_HL_IND comma T_MODE_A
 					{ out_AbsByte(0x02|(2<<4)); }
 				|	T_Z80_LDI T_MODE_A comma T_MODE_HL
-					{ out_AbsByte(0x0A|(2<<4)); }
+					{
+						out_AbsByte(0x0A|(2<<4));
+						if( nPass==1 )
+							warning("'LDI A,HL' is obsolete, use 'LDI A,[HL]' or 'LD A,[HL+] instead.");
+					}
 				|	T_Z80_LDI T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(2<<4)); }
 ;
@@ -1270,7 +1335,11 @@ z80_ldi			:	T_Z80_LDI T_MODE_HL_IND comma T_MODE_A
 z80_ldd			:	T_Z80_LDD T_MODE_HL_IND comma T_MODE_A
 					{ out_AbsByte(0x02|(3<<4)); }
 				|	T_Z80_LDD T_MODE_A comma T_MODE_HL
-					{ out_AbsByte(0x0A|(3<<4)); }
+					{
+						out_AbsByte(0x0A|(3<<4));
+						if( nPass==1 )
+							warning("'LDD A,HL' is obsolete, use 'LDD A,[HL]' or 'LD A,[HL-] instead.");
+					}
 				|	T_Z80_LDD T_MODE_A comma T_MODE_HL_IND
 					{ out_AbsByte(0x0A|(3<<4)); }
 ;
@@ -1282,7 +1351,7 @@ z80_ldio		:	T_Z80_LDIO T_MODE_A comma op_mem_ind
 						if( (!rpn_isReloc(&$4))
 						&&	($4.nVal<0 || ($4.nVal>0xFF && $4.nVal<0xFF00) || $4.nVal>0xFFFF) )
 						{
-							yyerror("Source address $%x not in HRAM ($FF00 to $FFFE)", $4.nVal);
+							yyerror("Source address $%x not in $FF00 to $FFFF", $4.nVal);
 						}
 
 						out_AbsByte(0xF0);
@@ -1296,7 +1365,7 @@ z80_ldio		:	T_Z80_LDIO T_MODE_A comma op_mem_ind
 						if( (!rpn_isReloc(&$2))
 						&&	($2.nVal<0 || ($2.nVal>0xFF && $2.nVal<0xFF00) || $2.nVal>0xFFFF) )
 						{
-							yyerror("Destination address $%x not in HRAM ($FF00 to $FFFE)", $2.nVal);
+							yyerror("Destination address $%x not in $FF00 to $FFFF", $2.nVal);
 						}
 
 						out_AbsByte(0xE0);
@@ -1316,7 +1385,10 @@ z80_ld			:	z80_ld_mem
 ;
 
 z80_ld_hl		:	T_Z80_LD T_MODE_HL comma '[' T_MODE_SP const_8bit ']'
-					{ out_AbsByte(0xF8); out_RelByte(&$6); }
+					{
+						out_AbsByte(0xF8); out_RelByte(&$6);
+						warning("'LD HL,[SP+e8]' is obsolete, use 'LD HL,SP+e8' instead.");
+					}
 				|	T_Z80_LD T_MODE_HL comma T_MODE_SP const_8bit
 					{ out_AbsByte(0xF8); out_RelByte(&$5); }
 				|	T_Z80_LD T_MODE_HL comma const_16bit
@@ -1406,8 +1478,14 @@ z80_ld_a		:	T_Z80_LD reg_r comma T_MODE_C_IND
 					}
 ;
 
-z80_ld_ss		:	T_Z80_LD reg_ss comma const_16bit
-					{ out_AbsByte(0x01|($2<<4)); out_RelWord(&$4); }
+z80_ld_ss		:	T_Z80_LD T_MODE_BC comma const_16bit
+					{ out_AbsByte(0x01|(REG_BC<<4)); out_RelWord(&$4); }
+				|	T_Z80_LD T_MODE_DE comma const_16bit
+					{ out_AbsByte(0x01|(REG_DE<<4)); out_RelWord(&$4); }
+				/*
+				 * HL is taken care of in z80_ld_hl
+				 * SP is taken care of in z80_ld_sp
+				 */
 ;
 
 z80_nop			:	T_Z80_NOP
@@ -1547,10 +1625,33 @@ op_a_n			:	const_8bit				{ $$ = $1; }
 comma			:	','
 ;
 
+T_MODE_A		:	T_TOKEN_A
+				|	T_OP_HIGH '(' T_MODE_AF ')'
+;
+T_MODE_B		:	T_TOKEN_B
+				|	T_OP_HIGH '(' T_MODE_BC ')'
+;
+T_MODE_C		:	T_TOKEN_C
+				|	T_OP_LOW '(' T_MODE_BC ')'
+;
+T_MODE_D		:	T_TOKEN_D
+				|	T_OP_HIGH '(' T_MODE_DE ')'
+;
+T_MODE_E		:	T_TOKEN_E
+				|	T_OP_LOW '(' T_MODE_DE ')'
+;
+T_MODE_H		:	T_TOKEN_H
+				|	T_OP_HIGH '(' T_MODE_HL ')'
+;
+T_MODE_L		:	T_TOKEN_L
+				|	T_OP_LOW '(' T_MODE_HL ')'
+;
+
+
 ccode			:	T_CC_NZ		{ $$ = CC_NZ; }
 				|	T_CC_Z		{ $$ = CC_Z; }
 				|	T_CC_NC		{ $$ = CC_NC; }
-				|	T_MODE_C	{ $$ = CC_C; }
+				|	T_TOKEN_C	{ $$ = CC_C; }
 ;
 
 reg_r			:	T_MODE_B		{ $$ = REG_B; }

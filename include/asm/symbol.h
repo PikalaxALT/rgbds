@@ -54,7 +54,6 @@ void sym_AddEqu(char *tzSym, SLONG value);
 void sym_AddSet(char *tzSym, SLONG value);
 void sym_Init(void);
 ULONG sym_GetConstantValue(char *s);
-void sym_Import(char *tzSym);
 ULONG sym_isConstant(char *s);
 struct sSymbol *sym_FindSymbol(char *tzName);
 void sym_Global(char *tzSym);
@@ -71,5 +70,6 @@ ULONG sym_GetDefinedValue(char *s);
 ULONG sym_isDefined(char *tzName);
 void sym_Purge(char *tzName);
 ULONG sym_isConstDefined(char *tzName);
+int sym_IsRelocDiffDefined(char *tzSym1, char *tzSym2);
 
 #endif
