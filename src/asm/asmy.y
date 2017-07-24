@@ -289,129 +289,75 @@ void	copymacro( void )
 	yyskipbytes( ulNewMacroSize+4 );
 }
 
-ULONG	isIf( char *s )
+ULONG	isIf(char *s)
 {
-	return( (strncasecmp(s,"If",2)==0) && isWhiteSpace(*(s-1)) && isWhiteSpace(s[2]) );
+	return((strncasecmp(s,"If",2) == 0) && isWhiteSpace(s[-1]) && isWhiteSpace(s[2]));
 }
 
-ULONG	isElse( char *s )
+ULONG	isElif(char *s)
 {
-	return( (strncasecmp(s,"Else",4)==0) && isWhiteSpace(*(s-1)) && isWhiteSpace(s[4]) );
+	return((strncasecmp(s,"Elif",4) == 0) && isWhiteSpace(s[-1]) && isWhiteSpace(s[4]));
 }
 
-ULONG	isEndc( char *s )
+ULONG	isElse(char *s)
 {
-	return( (strncasecmp(s,"Endc",4)==0) && isWhiteSpace(*(s-1)) && isWhiteSpace(s[4]) );
+	return((strncasecmp(s,"Else",4) == 0) && isWhiteSpace(s[-1]) && isWhiteSpace(s[4]));
 }
 
-void	if_skip_to_else( void )
+ULONG	isEndc(char *s)
 {
-	SLONG	level=1, len, instring=0;
-	char	*src=pCurrentBuffer->pBuffer;
+	return((strncasecmp(s,"Endc",4) == 0) && isWhiteSpace(s[-1]) && isWhiteSpace(s[4]));
+}
 
-	while( *src && level )
-	{
-		if( *src=='\n' )
-			nLineNo+=1;
+void	if_skip_to_else()
+{
+	SLONG level = 1;
+	bool inString = false;
+	char *src=pCurrentBuffer->pBuffer;
 
-		if( instring==0 )
-		{
-			if( isIf(src) )
-			{
-				level+=1;
-				src+=2;
-			}
-			else if( level==1 && isElse(src) )
-			{
-				level-=1;
-				src+=4;
-			}
-			else if( isEndc(src) )
-			{
-				level-=1;
-				if( level!=0 )
-					src+=4;
-			}
-			else
-			{
-				if( *src=='\"' )
-					instring=1;
-				src+=1;
-			}
+	while (*src && level) {
+		if (*src == '\n') {
+			nLineNo++;
 		}
-		else
-		{
-			if( *src=='\\' )
-			{
-				src+=2;
-			}
-			else if( *src=='\"' )
-			{
-				src+=1;
-				instring=0;
-			}
-			else
-			{
-				src+=1;
-			}
-		}
-	}
 
-	if (level != 0) {
-		fatalerror("Unterminated IF construct");
-	}
+		if (!inString) {
+			if (isIf(src)) {
+				level++;
+				src += 2;
 
-	len=src-pCurrentBuffer->pBuffer;
+			} else if (level == 1 && isElif(src)) {
+				level--;
+				skipElif = false;
 
-	yyskipbytes( len );
-	yyunput( '\n' );
-	nLineNo-=1;
-}
+			} else if (level == 1 && isElse(src)) {
+				level--;
+				src += 4;
 
-void	if_skip_to_endc( void )
-{
-	SLONG	level=1, len, instring=0;
-	char	*src=pCurrentBuffer->pBuffer;
+			} else if (isEndc(src)) {
+				level--;
+				if (level != 0) {
+					src += 4;
+				}
 
-	while( *src && level )
-	{
-		if( *src=='\n' )
-			nLineNo+=1;
+			} else {
+				if (*src=='\"') {
+					inString = true;
+				}
+				src++;
+			}
+		} else {
+			switch (*src) {
+			case '\\':
+				src += 2;
+				break;
 
-		if( instring==0 )
-		{
-			if( isIf(src) )
-			{
-				level+=1;
-				src+=2;
-			}
-			else if( isEndc(src) )
-			{
-				level-=1;
-				if( level!=0 )
-					src+=4;
-			}
-			else
-			{
-				if( *src=='\"' )
-					instring=1;
-				src+=1;
-			}
-		}
-		else
-		{
-			if( *src=='\\' )
-			{
-				src+=2;
-			}
-			else if( *src=='\"' )
-			{
-				src+=1;
-				instring=0;
-			}
-			else
-			{
-				src+=1;
+			case '\"':
+				src++;
+				inString = false;
+
+			default:
+				src++;
+				break;
 			}
 		}
 	}
@@ -420,11 +366,97 @@ void	if_skip_to_endc( void )
 		fatalerror("Unterminated IF construct");
 	}
 
-	len=src-pCurrentBuffer->pBuffer;
+	SLONG len = src - pCurrentBuffer->pBuffer;
 
-	yyskipbytes( len );
-	yyunput( '\n' );
-	nLineNo-=1;
+	yyskipbytes(len);
+	yyunput('\n');
+	nLineNo--;
+}
+
+void	if_skip_to_endc()
+{
+	SLONG level = 1;
+	bool inString = false;
+	char *src=pCurrentBuffer->pBuffer;
+
+	while (*src && level) {
+		if (*src == '\n') {
+			nLineNo++;
+		}
+
+		if (!inString) {
+			if (isIf(src)) {
+				level++;
+				src += 2;
+
+			} else if (isEndc(src)) {
+				level--;
+				if (level != 0) {
+					src += 4;
+				}
+
+			} else {
+				if (*src=='\"') {
+					inString = true;
+				}
+				src++;
+			}
+		}
+		else {
+			switch (*src) {
+			case '\\':
+				src += 2;
+				break;
+
+			case '\"':
+				src++;
+				inString = false;
+				break;
+
+			default:
+				src++;
+				break;
+			}
+		}
+	}
+
+	if (level != 0) {
+		fatalerror("Unterminated IF construct");
+	}
+
+	SLONG len = src - pCurrentBuffer->pBuffer;
+
+	yyskipbytes(len);
+	yyunput('\n');
+	nLineNo--;
+}
+
+void startUnion() {
+	if (!pCurrentSection) {
+		fatalerror("UNIONs must be inside a SECTION");
+	}
+	
+	ULONG unionIndex = nUnionDepth;
+	nUnionDepth++;
+	if (nUnionDepth > MAXUNIONS) {
+		fatalerror("Too many nested UNIONs");
+	}
+	
+	unionStart[unionIndex] = nPC;
+	unionSize[unionIndex] = 0;
+}
+
+void updateUnion() {
+	ULONG unionIndex = nUnionDepth - 1;
+	ULONG size = nPC - unionStart[unionIndex];
+	
+	if (size > unionSize[unionIndex]) {
+		unionSize[unionIndex] = size;
+	}
+	
+	nPC = unionStart[unionIndex];
+	pCurrentSection->nPC = unionStart[unionIndex];
+	pPCSymbol->nValue = unionStart[unionIndex];
 }
 
 %}
@@ -439,6 +471,7 @@ void	if_skip_to_endc( void )
 
 %type	<sVal>	relocconst
 %type	<nConstValue>	const
+%type	<nConstValue>	uconst
 %type	<nConstValue>	const_3bit
 %type	<sVal>	const_8bit
 %type	<sVal>	const_16bit
@@ -491,7 +524,7 @@ void	if_skip_to_endc( void )
 %token	<tzSym> T_POP_SET
 %token	<tzSym> T_POP_EQUS
 
-%token	T_POP_INCLUDE T_POP_PRINTF T_POP_PRINTT T_POP_PRINTV T_POP_IF T_POP_ELSE T_POP_ENDC
+%token	T_POP_INCLUDE T_POP_PRINTF T_POP_PRINTT T_POP_PRINTV T_POP_IF T_POP_ELIF T_POP_ELSE T_POP_ENDC
 %token	T_POP_IMPORT T_POP_EXPORT T_POP_GLOBAL
 %token	T_POP_DB T_POP_DS T_POP_DW T_POP_DL
 %token	T_POP_SECTION
@@ -501,6 +534,7 @@ void	if_skip_to_endc( void )
 %token	T_POP_MACRO
 %token	T_POP_ENDM
 %token	T_POP_RSRESET T_POP_RSSET
+%token	T_POP_UNION T_POP_NEXTU T_POP_ENDU
 %token	T_POP_INCBIN T_POP_REPT
 %token	T_POP_CHARMAP
 %token	T_POP_SHIFT
@@ -626,6 +660,7 @@ simple_pseudoop	:	include
 				|	printt
 				|	printv
 				|	if
+				|	elif
 				|	else
 				|	endc
 				|	import
@@ -638,6 +673,9 @@ simple_pseudoop	:	include
 				|	section
 				|	rsreset
 				|	rsset
+				|	union
+				|	nextu
+				|	endu
 				|	incbin
 				|	charmap
 				|	rept
@@ -692,7 +730,7 @@ shift			:	T_POP_SHIFT
 					{ sym_ShiftCurrentMacroArgs(); }
 ;
 
-rept			:	T_POP_REPT const
+rept			:	T_POP_REPT uconst
 					{
 						copyrept();
 						fstk_RunRept( $2 );
@@ -710,7 +748,7 @@ equs			:	T_LABEL T_POP_EQUS string
 					{ sym_AddString( $1, $3 ); }
 ;
 
-rsset			:	T_POP_RSSET const
+rsset			:	T_POP_RSSET uconst
 					{ sym_AddSet( "_RS", $2 ); }
 ;
 
@@ -718,28 +756,53 @@ rsreset			:	T_POP_RSRESET
 					{ sym_AddSet( "_RS", 0 ); }
 ;
 
-rl				:	T_LABEL T_POP_RL const
+rl				:	T_LABEL T_POP_RL uconst
 					{
 						sym_AddEqu( $1, sym_GetConstantValue("_RS") );
 						sym_AddSet( "_RS", sym_GetConstantValue("_RS")+4*$3 );
 					}
 ;
 
-rw				:	T_LABEL T_POP_RW const
+rw				:	T_LABEL T_POP_RW uconst
 					{
 						sym_AddEqu( $1, sym_GetConstantValue("_RS") );
 						sym_AddSet( "_RS", sym_GetConstantValue("_RS")+2*$3 );
 					}
 ;
 
-rb				:	T_LABEL T_POP_RB const
+rb				:	T_LABEL T_POP_RB uconst
 					{
 						sym_AddEqu( $1, sym_GetConstantValue("_RS") );
 						sym_AddSet( "_RS", sym_GetConstantValue("_RS")+$3 );
 					}
 ;
 
-ds				:	T_POP_DS const
+union			:	T_POP_UNION {
+						startUnion();
+					};
+
+nextu			:	T_POP_NEXTU {
+						if (nUnionDepth <= 0) {
+							fatalerror("Found NEXTU outside of a UNION construct");
+						}
+	
+						updateUnion();
+					};
+
+endu			:	T_POP_ENDU {
+						if (nUnionDepth <= 0) {
+							fatalerror("Found ENDU outside of a UNION construct");
+						}
+						
+						updateUnion();
+	
+						nUnionDepth--;
+						nPC = unionStart[nUnionDepth] + unionSize[nUnionDepth];
+						pCurrentSection->nPC = nPC;
+						pPCSymbol->nValue = nPC;
+					};
+
+ds				:	T_POP_DS uconst
 					{ out_Skip( $2 ); }
 ;
 
@@ -821,7 +884,7 @@ include			:	T_POP_INCLUDE string
 
 incbin			:	T_POP_INCBIN string
 					{ out_BinaryFile( $2 ); }
-				|	T_POP_INCBIN string ',' const ',' const
+				|	T_POP_INCBIN string ',' uconst ',' uconst
 					{
 						out_BinaryFileSlice( $2, $4, $6 );
 					}
@@ -866,26 +929,47 @@ printf			:	T_POP_PRINTF const
 					}
 ;
 
-if				:	T_POP_IF const
-					{
-						nIFDepth+=1;
-						if( !$2 )
-						{
-							if_skip_to_else();	/* will continue parsing just after ELSE or just at ENDC keyword */
+if				:	T_POP_IF const {
+						nIFDepth++;
+						if (!$2) {
+							if_skip_to_else(); // Continue parsing after ELSE, or at ELIF or ENDC keyword
 						}
-					}
+					};
 
-else			:	T_POP_ELSE
-					{
-						if_skip_to_endc();		/* will continue parsing just at ENDC keyword */
-					}
-;
+elif			:	T_POP_ELIF const {
+						if (nIFDepth <= 0) {
+							fatalerror("Found ELIF outside an IF construct");
+						}
 
-endc			:	T_POP_ENDC
-					{
-						nIFDepth-=1;
-					}
-;
+						if (skipElif) {
+							// This is for when ELIF is reached at the end of an IF or ELIF block for which the condition was true.
+							if_skip_to_endc(); // Continue parsing at ENDC keyword
+
+						} else {
+							// This is for when ELIF is skipped to because the condition of the previous IF or ELIF block was false.
+							skipElif = true;
+
+							if (!$2) {
+								if_skip_to_else(); // Continue parsing after ELSE, or at ELIF or ENDC keyword
+							}
+						}
+					};
+
+else			:	T_POP_ELSE {
+						if (nIFDepth <= 0) {
+							fatalerror("Found ELSE outside an IF construct");
+						}
+
+						if_skip_to_endc(); // Continue parsing at ENDC keyword
+					};
+
+endc			:	T_POP_ENDC {
+						if (nIFDepth <= 0) {
+							fatalerror("Found ENDC outside an IF construct");
+						}
+
+						nIFDepth--;
+					};
 
 const_3bit		:	const
 					{
@@ -1042,6 +1126,14 @@ relocconst		:	T_ID
 						{ $$ = $2; }
 ;
 
+uconst			:	const
+					{
+						if($1 < 0)
+							fatalerror("Constant mustn't be negative: %d", $1);
+						$$=$1;
+					}
+;
+
 const			:	T_ID							{ $$ = sym_GetConstantValue($1); }
 				|	T_NUMBER 						{ $$ = $1; }
 				|	string						{ $$ = str2int($1); }
@@ -1068,16 +1160,18 @@ const			:	T_ID							{ $$ = sym_GetConstantValue($1); }
 				|	const T_OP_SHL const			{ $$ = $1 << $3; }
 				|	const T_OP_SHR const			{ $$ = $1 >> $3; }
 				|	const T_OP_MUL const			{ $$ = $1 * $3; }
-				|	const T_OP_DIV const			{
-	if ($3 == 0)
-		fatalerror("division by zero");
-	$$ = $1 / $3;
-	}
-				|	const T_OP_MOD const			{
-	if ($3 == 0)
-		fatalerror("division by zero");
-	$$ = $1 % $3;
-	}
+				|	const T_OP_DIV const
+					{
+						if ($3 == 0)
+							fatalerror("division by zero");
+						$$ = $1 / $3;
+					}
+				|	const T_OP_MOD const
+					{
+						if ($3 == 0)
+							fatalerror("division by zero");
+						$$ = $1 % $3;
+					}
 				|	T_OP_ADD const %prec NEG		{ $$ = +$2; }
 				|	T_OP_SUB const %prec NEG		{ $$ = -$2; }
 				|	T_OP_NOT const %prec NEG		{ $$ = 0xFFFFFFFF^$2; }
@@ -1113,7 +1207,7 @@ const			:	T_ID							{ $$ = sym_GetConstantValue($1); }
 
 string			:	T_STRING
 					{ strcpy($$,$1); }
-				|	T_OP_STRSUB '(' string ',' const ',' const ')'
+				|	T_OP_STRSUB '(' string ',' uconst ',' uconst ')'
 					{ strncpy($$,$3+$5-1,$7); $$[$7]=0; }
 				|	T_OP_STRCAT '(' string ',' string ')'
 					{ strcpy($$,$3); strcat($$,$5); }
@@ -1127,33 +1221,33 @@ section:
 		{
 			out_NewSection($2,$4);
 		}
-	|	T_POP_SECTION string ',' sectiontype '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype '[' uconst ']'
 		{
 			if( $6>=0 && $6<0x10000 )
 				out_NewAbsSection($2,$4,$6,-1);
 			else
 				yyerror("Address $%x not 16-bit", $6);
 		}
-	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' uconst ']'
 		{
 			out_NewAlignedSection($2, $4, $8, -1);
 		}
-	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' uconst ']'
 		{
 			bankrangecheck($2, $4, -1, $8);
 		}
-	|	T_POP_SECTION string ',' sectiontype '[' const ']' ',' T_OP_BANK '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype '[' uconst ']' ',' T_OP_BANK '[' uconst ']'
 		{
 			if ($6 < 0 || $6 > 0x10000) {
 				yyerror("Address $%x not 16-bit", $6);
 			}
 			bankrangecheck($2, $4, $6, $11);
 		}
-	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' const ']' ',' T_OP_BANK '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_ALIGN '[' uconst ']' ',' T_OP_BANK '[' uconst ']'
 		{
 			out_NewAlignedSection($2, $4, $8, $13);
 		}
-	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' const ']' ',' T_OP_ALIGN '[' const ']'
+	|	T_POP_SECTION string ',' sectiontype ',' T_OP_BANK '[' uconst ']' ',' T_OP_ALIGN '[' uconst ']'
 		{
 			out_NewAlignedSection($2, $4, $13, $8);
 		}

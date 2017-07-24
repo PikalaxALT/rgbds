@@ -275,7 +275,7 @@ Alternatively you can use = as a synonym for SET.
 .Pp
 .Dl COUNT = 2
 .Pp
-.It Sy RSSET , RERESET , RB , RW
+.It Sy RSSET , RSRESET , RB , RW
 .Pp
 The RS group of commands is a handy way of defining structures:
 .Pp
@@ -307,6 +307,8 @@ There are four commands in the RS group of commands:
 .Ic _RS No and adds Ar constexpr No to Ic _RS .
 .It Ic RW Ar constexpr Ta Sets the preceding symbol to
 .Ic _RS No and adds Ar constexpr No * 2 to Ic _RS.
+.It Ic RL Ar constexpr Ta Sets the preceding symbol to
+.Ic _RS No and adds Ar constexpr No * 4 to Ic _RS.
 .El
 .Pp
 Note that a colon (:) following the symbol-name is not allowed.
@@ -547,6 +549,9 @@ The following symbols are defined by the assembler:
 .It Ic EQU Ta Ic __UTC_HOUR__ Ta Ta Current hour, 0-23
 .It Ic EQU Ta Ic __UTC_MINUTE__ Ta Ta Current minute, 0-59
 .It Ic EQU Ta Ic __UTC_SECOND__ Ta Ta Current second, 0-59
+.It Ic EQU Ta Ic __RGBDS_MAJOR__ Ta Ta Major version number of RGBDS.
+.It Ic EQU Ta Ic __RGBDS_MINOR__ Ta Ta Minor version number of RGBDS.
+.It Ic EQU Ta Ic __RGBDS_PATCH__ Ta Ta Patch version number of RGBDS.
 .El
 .Pp
 .Sh DEFINING DATA
@@ -610,6 +615,41 @@ You can also include only part of a file with
 The example below includes 256 bytes from data.bin starting from byte 78.
 .Pp
 .Dl INCBIN \[dq]data.bin\[dq],78,256
+.Ss Unions
+Unions allow multiple memory allocations to share the same space in memory,
+like unions in C.
+This allows you to easily reuse memory for different purposes, depending on
+the game's state.
+.Pp
+You create unions using the
+.Ic UNION ,
+.Ic NEXTU
+and
+.Ic ENDU
+keywords.
+.Ic NEXTU
+lets you create a new block of allocations, and you may use it as many times
+within a union as necessary.
+.Pp
+.Bd -literal -offset indent
+UNION
+Name: ds 8
+Nickname: ds 8
+NEXTU
+Health: dw
+Something: ds 3
+Lives: db
+NEXTU
+Temporary: ds 19
+ENDU
+.Ed
+.Pp
+This union will use up 19 bytes, as this is the size of the largest block
+(the last one, containing 'Temporary').
+Of course, as 'Name', 'Health', and 'Temporary' all point to the same memory
+locations, writes to any one of these will affect values read from the others.
+.Pp
+Unions may be used in any section, but code and data may not be included.
 .Sh THE MACRO LANGUAGE
 .Pp
 .Ss Printing things during assembly
@@ -702,27 +742,48 @@ calls infinitely (or until you run out of memory, whichever comes first).
 .Dl INCLUDE \[dq]irq.inc\[dq]
 .Pp
 .Ss Conditional assembling
-The three commands
+The four commands
 .Ic IF ,
-.Ic ELSE
+.Ic ELIF ,
+.Ic ELSE ,
 and
 .Ic ENDC
 are used to conditionally assemble parts of your file.
 This is a powerful feature commonly used in macros.
 .Pp
 .Bd -literal -offset indent
-IF 2+2==4
-PRINTT \[dq]2+2==4\[rs]n\[dq]
+IF NUM < 0
+  PRINTT \[dq]NUM < 0\[rs]n\[dq]
+ELIF NUM == 0
+  PRINTT \[dq]NUM == 0\[rs]n\[dq]
 ELSE
-PRINTT \[dq]2+2!=4\[rs]n\[dq]
+  PRINTT \[dq]NUM > 0\[rs]n\[dq]
 ENDC
 .Ed
 .Pp
 The
+.Ic ELIF
+and
 .Ic ELSE
-block is optional.
-.Ic IF No / Ic ELSE No / Ic ENDC
+blocks are optional.
+.Ic IF No / Ic ELIF No / Ic ELSE No / Ic ENDC
 blocks can be nested.
+.Pp
+Note that if an
+.Ic ELSE
+block is found before an
+.Ic ELIF
+block, the
+.Ic ELIF
+block will be ignored.
+All
+.Ic ELIF
+blocks must go before the
+.Ic ELSE
+block.
+Also, if there is more than one
+.Ic ELSE
+block, all of them but the first one are ignored.
 .Ss Integer and Boolean expressions
 An expression can be composed of many things.
 Expressions are always evaluated using signed 32-bit math.
@@ -954,6 +1015,15 @@ machine.
 .It Sx __ISO_8601_UTC__
 .It Sx __LINE__
 .It Sx __TIME__
+.It Sx __RGBDS_MAJOR__
+.It Sx __RGBDS_MINOR__
+.It Sx __RGBDS_PATCH__
+.It Sx __UTC_YEAR__
+.It Sx __UTC_MONTH__
+.It Sx __UTC_DAY__
+.It Sx __UTC_HOUR__
+.It Sx __UTC_MINUTE__
+.It Sx __UTC_SECOND__
 .It Sx _NARG
 .It Sx _PI
 .It Sx _RS
@@ -968,6 +1038,7 @@ machine.
 .It Sx DIV
 .It Sx DS
 .It Sx DW
+.It Sx ELIF
 .It Sx ELSE
 .It Sx ENDC
 .It Sx ENDM
@@ -996,6 +1067,7 @@ machine.
 .It Sx PUSHS
 .It Sx REPT
 .It Sx RB
+.It Sx RL
 .It Sx ROM0
 .It Sx ROMX
 .It Sx RSRESET
