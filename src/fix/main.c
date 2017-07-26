@@ -22,17 +22,16 @@
 #include <unistd.h>
 
 #include "extern/err.h"
-
-char *progname;
+#include "extern/version.h"
 
 static void
 usage(void)
 {
 	printf(
-"usage: rgbfix [-Ccjsv] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
+"usage: rgbfix [-CcjsVv] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
 "              [-m mbc_type] [-n rom_version] [-p pad_value] [-r ram_size]\n"
 "              [-t title_str] [-x tpp_version] file\n\n\n"
-"RGBFIX for TPPX cartridge spec, version 1.0.5\n");
+"RGBFIX for TPPX cartridge spec, version 1.0.6\n");
 	exit(1);
 }
 
@@ -75,9 +74,7 @@ main(int argc, char *argv[])
 	bool tppspec = false;
 	int tppversion;
 
-	progname = argv[0];
-
-	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:vx:")) != -1) {
+	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:Vvx:")) != -1) {
 		switch (ch) {
 		case 'C':
 			coloronly = true;
@@ -185,6 +182,9 @@ main(int argc, char *argv[])
 
 			title = optarg;
 			break;
+		case 'V':
+			printf("rgbfix %s\n", get_package_version_string());
+			exit(0);
 		case 'v':
 			validate = true;
 			break;

@@ -12,6 +12,8 @@
 #include "asm/main.h"
 #include "asm/mymath.h"
 #include "asm/output.h"
+#include "extern/err.h"
+#include "extern/version.h"
 
 struct sSymbol *tHashedSymbols[HASHSIZE];
 struct sSymbol *pScope = NULL;
@@ -21,9 +23,32 @@ char *currentmacroargs[MAXMACROARGS + 1];
 char *newmacroargs[MAXMACROARGS + 1];
 char SavedTIME[256];
 char SavedDATE[256];
+char SavedTIMESTAMP_ISO8601_LOCAL[256];
+char SavedTIMESTAMP_ISO8601_UTC[256];
+char SavedDAY[3];
+char SavedMONTH[3];
+char SavedYEAR[5];
+char SavedHOUR[3];
+char SavedMINUTE[3];
+char SavedSECOND[3];
 bool exportall;
 
-SLONG 
+void helper_RemoveLeadingZeros(char * string){
+	char * new_beginning = string;
+
+	while(*new_beginning == '0')
+		new_beginning++;
+
+	if(new_beginning == string)
+		return;
+
+	if(*new_beginning == '\0')
+		new_beginning--;
+
+	memmove(string, new_beginning, strlen(new_beginning) + 1);
+}
+
+SLONG
 Callback_NARG(struct sSymbol * sym)
 {
 	ULONG i = 0;
@@ -37,7 +62,7 @@ Callback_NARG(struct sSymbol * sym)
 /*
  * Get the nValue field of a symbol
  */
-SLONG 
+SLONG
 getvaluefield(struct sSymbol * sym)
 {
 	if (sym->Callback) {
@@ -49,7 +74,7 @@ getvaluefield(struct sSymbol * sym)
 /*
  * Calculate the hash value for a string
  */
-ULONG 
+ULONG
 calchash(char *s)
 {
 	ULONG hash = 5381;
@@ -90,26 +115,16 @@ createsymbol(char *s)
 		return (NULL);
 	}
 }
+
 /*
- * Find a symbol by name and scope
+ * Creates the full name of a local symbol in a given scope, by prepending
+ * the name with the parent symbol's name.
  */
-struct sSymbol *
-findsymbol(char *s, struct sSymbol * scope)
+size_t
+fullSymbolName(char *output, size_t outputSize, char *localName, struct sSymbol *scope)
 {
-	struct sSymbol **ppsym;
-	SLONG hash;
-
-	hash = calchash(s);
-	ppsym = &(tHashedSymbols[hash]);
-
-	while ((*ppsym) != NULL) {
-		if ((strcmp(s, (*ppsym)->tzName) == 0)
-		    && ((*ppsym)->pScope == scope)) {
-			return (*ppsym);
-		} else
-			ppsym = &((*ppsym)->pNext);
-	}
-	return (NULL);
+	struct sSymbol *parent = scope->pScope ? scope->pScope : scope;
+	return snprintf(output, outputSize, "%s%s", parent->tzName, localName);
 }
 
 /*
@@ -120,18 +135,40 @@ findpsymbol(char *s, struct sSymbol * scope)
 {
 	struct sSymbol **ppsym;
 	SLONG hash;
+	char fullname[MAXSYMLEN + 1];
+		
+	if (s[0] == '.' && scope) {
+		fullSymbolName(fullname, sizeof(fullname), s, scope);
+		s = fullname;
+	}
+	
+	char *seperator;
+	if ((seperator = strchr(s, '.'))) {
+		if (strchr(seperator + 1, '.')) {
+			fatalerror("'%s' is a nonsensical reference to a nested local symbol", s);
+		}
+	}
 
 	hash = calchash(s);
 	ppsym = &(tHashedSymbols[hash]);
 
 	while ((*ppsym) != NULL) {
-		if ((strcmp(s, (*ppsym)->tzName) == 0)
-		    && ((*ppsym)->pScope == scope)) {
+		if ((strcmp(s, (*ppsym)->tzName) == 0)) {
 			return (ppsym);
 		} else
 			ppsym = &((*ppsym)->pNext);
 	}
 	return (NULL);
+}
+
+/*
+ * Find a symbol by name and scope
+ */
+struct sSymbol *
+findsymbol(char *s, struct sSymbol * scope)
+{
+	struct sSymbol **ppsym = findpsymbol(s, scope);
+	return ppsym ? *ppsym : NULL;
 }
 
 /*
@@ -153,7 +190,7 @@ sym_FindSymbol(char *tzName)
 /*
  * Purge a symbol
  */
-void 
+void
 sym_Purge(char *tzName)
 {
 	struct sSymbol **ppSym;
@@ -184,7 +221,7 @@ sym_Purge(char *tzName)
 /*
  * Determine if a symbol has been defined
  */
-ULONG 
+ULONG
 sym_isConstDefined(char *tzName)
 {
 	struct sSymbol *psym, *pscope;
@@ -208,7 +245,7 @@ sym_isConstDefined(char *tzName)
 	return (0);
 }
 
-ULONG 
+ULONG
 sym_isDefined(char *tzName)
 {
 	struct sSymbol *psym, *pscope;
@@ -229,7 +266,7 @@ sym_isDefined(char *tzName)
 /*
  * Determine if the symbol is a constant
  */
-ULONG 
+ULONG
 sym_isConstant(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -266,7 +303,7 @@ sym_GetStringValue(char *tzSym)
 /*
  * Return a constant symbols value
  */
-ULONG 
+ULONG
 sym_GetConstantValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -292,7 +329,7 @@ sym_GetConstantValue(char *s)
 /*
  * Return a symbols value... "estimated" if not defined yet
  */
-ULONG 
+ULONG
 sym_GetValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -331,7 +368,7 @@ sym_GetValue(char *s)
 /*
  * Return a defined symbols value... aborts if not defined yet
  */
-ULONG 
+ULONG
 sym_GetDefinedValue(char *s)
 {
 	struct sSymbol *psym, *pscope;
@@ -360,7 +397,7 @@ sym_GetDefinedValue(char *s)
 /*
  * Macro argument stuff
  */
-void 
+void
 sym_ShiftCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -378,12 +415,13 @@ sym_FindMacroArg(SLONG i)
 	if (i == -1)
 		i = MAXMACROARGS + 1;
 
-	assert(i-1 >= 0 &&
-	    i-1 < sizeof currentmacroargs / sizeof *currentmacroargs);
+	assert(i-1 >= 0);
+	assert((size_t)(i-1) < sizeof(currentmacroargs)/sizeof(*currentmacroargs));
+
 	return (currentmacroargs[i - 1]);
 }
 
-void 
+void
 sym_UseNewMacroArgs(void)
 {
 	SLONG i;
@@ -394,7 +432,7 @@ sym_UseNewMacroArgs(void)
 	}
 }
 
-void 
+void
 sym_SaveCurrentMacroArgs(char *save[])
 {
 	SLONG i;
@@ -403,7 +441,7 @@ sym_SaveCurrentMacroArgs(char *save[])
 		save[i] = currentmacroargs[i];
 }
 
-void 
+void
 sym_RestoreCurrentMacroArgs(char *save[])
 {
 	SLONG i;
@@ -412,7 +450,7 @@ sym_RestoreCurrentMacroArgs(char *save[])
 		currentmacroargs[i] = save[i];
 }
 
-void 
+void
 sym_FreeCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -423,7 +461,7 @@ sym_FreeCurrentMacroArgs(void)
 	}
 }
 
-void 
+void
 sym_AddNewMacroArg(char *s)
 {
 	SLONG i = 0;
@@ -440,7 +478,7 @@ sym_AddNewMacroArg(char *s)
 		yyerror("A maximum of %d arguments allowed", MAXMACROARGS);
 }
 
-void 
+void
 sym_SetMacroArgID(ULONG nMacroCount)
 {
 	char s[256];
@@ -449,7 +487,7 @@ sym_SetMacroArgID(ULONG nMacroCount)
 	newmacroargs[MAXMACROARGS] = strdup(s);
 }
 
-void 
+void
 sym_UseCurrentMacroArgs(void)
 {
 	SLONG i;
@@ -470,7 +508,7 @@ sym_FindMacro(char *s)
 /*
  * Add an equated symbol
  */
-void 
+void
 sym_AddEqu(char *tzSym, SLONG value)
 {
 	if ((nPass == 1)
@@ -494,9 +532,18 @@ sym_AddEqu(char *tzSym, SLONG value)
 }
 
 /*
- * Add a string equated symbol
+ * Add a string equated symbol.
+ *
+ * If the desired symbol is a string it needs to be passed to this function with
+ * quotes inside the string, like sym_AddString("name", "\"test\"), or the
+ * assembler won't be able to use it with DB and similar. This is equivalent as
+ * ``` name EQUS "\"test\"" ```
+ *
+ * If the desired symbol is a register or a number, just the terminator quotes
+ * of the string are enough: sym_AddString("M_PI", "3.1415"). This is the same
+ * as ``` M_PI EQUS "3.1415" ```
  */
-void 
+void
 sym_AddString(char *tzSym, char *tzValue)
 {
 	struct sSymbol *nsym;
@@ -522,7 +569,7 @@ sym_AddString(char *tzSym, char *tzValue)
 /*
  * check if symbol is a string equated symbol
  */
-ULONG 
+ULONG
 sym_isString(char *tzSym)
 {
 	struct sSymbol *pSym;
@@ -537,7 +584,7 @@ sym_isString(char *tzSym)
 /*
  * Alter a SET symbols value
  */
-void 
+void
 sym_AddSet(char *tzSym, SLONG value)
 {
 	struct sSymbol *nsym;
@@ -556,49 +603,55 @@ sym_AddSet(char *tzSym, SLONG value)
 /*
  * Add a local (.name) relocatable symbol
  */
-void 
+void
 sym_AddLocalReloc(char *tzSym)
 {
-	if ((nPass == 1)
-	    || ((nPass == 2) && (sym_isDefined(tzSym) == 0))) {
-		/* only add local reloc symbols in pass 1 */
-		struct sSymbol *nsym;
-
-		if (pScope) {
-			if ((nsym = findsymbol(tzSym, pScope)) != NULL) {
-				if (nsym->nType & SYMF_DEFINED) {
-					yyerror("'%s' already defined", tzSym);
-				}
-			} else
-				nsym = createsymbol(tzSym);
-
-			if (nsym) {
-				nsym->nValue = nPC;
-				nsym->nType |=
-				    SYMF_RELOC | SYMF_LOCAL | SYMF_DEFINED;
-				if (exportall) {
-				   nsym->nType |= SYMF_EXPORT;
-				}
-				nsym->pScope = pScope;
-				nsym->pSection = pCurrentSection;
-			}
-		} else
-			fatalerror("Local label in main scope");
+	if (pScope) {
+		if (strlen(tzSym) + strlen(pScope->tzName) > MAXSYMLEN) {
+			fatalerror("Symbol too long");
+		}
+		
+		char fullname[MAXSYMLEN + 1];
+		fullSymbolName(fullname, sizeof(fullname), tzSym, pScope);
+		sym_AddReloc(fullname);
+		
+	} else {
+		fatalerror("Local label in main scope");
 	}
 }
 
 /*
  * Add a relocatable symbol
  */
-void 
+void
 sym_AddReloc(char *tzSym)
 {
+	struct sSymbol* scope = NULL;
+	
 	if ((nPass == 1)
 	    || ((nPass == 2) && (sym_isDefined(tzSym) == 0))) {
 		/* only add reloc symbols in pass 1 */
 		struct sSymbol *nsym;
+		char *localPtr = NULL;
+		
+		if ((localPtr = strchr(tzSym, '.')) != NULL) {			
+			if (!pScope) {
+				fatalerror("Local label in main scope");
+			}
+			
+			struct sSymbol *parent = pScope->pScope ? pScope->pScope : pScope;
+			int parentLen = localPtr - tzSym;
+			
+			if (strchr(localPtr + 1, '.') != NULL) {
+				fatalerror("'%s' is a nonsensical reference to a nested local symbol", tzSym);
+			} else if (strlen(parent->tzName) != parentLen || strncmp(tzSym, parent->tzName, parentLen) != 0) {
+				yyerror("Not currently in the scope of '%.*s'", parentLen, tzSym);
+			}
+			
+			scope = parent;
+		}
 
-		if ((nsym = findsymbol(tzSym, NULL)) != NULL) {
+		if ((nsym = findsymbol(tzSym, scope)) != NULL) {
 			if (nsym->nType & SYMF_DEFINED) {
 				yyerror("'%s' already defined", tzSym);
 			}
@@ -608,27 +661,73 @@ sym_AddReloc(char *tzSym)
 		if (nsym) {
 			nsym->nValue = nPC;
 			nsym->nType |= SYMF_RELOC | SYMF_DEFINED;
+			if (localPtr) {
+				nsym->nType |= SYMF_LOCAL;
+			}
 			if (exportall) {
 			   nsym->nType |= SYMF_EXPORT;
 			}
-			nsym->pScope = NULL;
+			nsym->pScope = scope;
 			nsym->pSection = pCurrentSection;
 		}
 	}
-	pScope = findsymbol(tzSym, NULL);
+	pScope = findsymbol(tzSym, scope);
+}
+
+/*
+ * Check if the subtraction of two symbols is defined. That is, either both
+ * symbols are defined and the result is a constant, or both symbols are
+ * relocatable and belong to the same section.
+ *
+ * It returns 1 if the difference is defined, 0 if not.
+ */
+int
+sym_IsRelocDiffDefined(char *tzSym1, char *tzSym2)
+{
+	/* Do nothing the first pass. */
+	if (nPass != 2)
+		return 1;
+
+	struct sSymbol *nsym1, *nsym2;
+
+	/* Do the symbols exist? */
+	if ((nsym1 = sym_FindSymbol(tzSym1)) == NULL)
+		fatalerror("Symbol \"%s\" isn't defined.", tzSym1);
+	if ((nsym2 = sym_FindSymbol(tzSym2)) == NULL)
+		fatalerror("Symbol \"%s\" isn't defined.", tzSym2);
+
+	int s1reloc = (nsym1->nType & SYMF_RELOC) != 0;
+	int s2reloc = (nsym2->nType & SYMF_RELOC) != 0;
+
+	/* Both are non-relocatable */
+	if (!s1reloc && !s2reloc) return 1;
+
+	/* One of them relocatable, the other one not. */
+	if (s1reloc ^ s2reloc) return 0;
+
+	/* Both of them are relocatable. Make sure they are defined (internal
+         * coherency with sym_AddReloc and sym_AddLocalReloc). */
+	if (!(nsym1->nType & SYMF_DEFINED))
+		fatalerror("Relocatable symbol \"%s\" isn't defined.", tzSym1);
+	if (!(nsym2->nType & SYMF_DEFINED))
+		fatalerror("Relocatable symbol \"%s\" isn't defined.", tzSym2);
+
+	/* Both of them must be in the same section for the difference to be
+         * defined. */
+	return nsym1->pSection == nsym2->pSection;
 }
 
 /*
  * Export a symbol
  */
-void 
+void
 sym_Export(char *tzSym)
 {
 	if (nPass == 1) {
 		/* only export symbols in pass 1 */
 		struct sSymbol *nsym;
 
-		if ((nsym = findsymbol(tzSym, 0)) == NULL)
+		if ((nsym = sym_FindSymbol(tzSym)) == NULL)
 			nsym = createsymbol(tzSym);
 
 		if (nsym)
@@ -636,7 +735,7 @@ sym_Export(char *tzSym)
 	} else {
 		struct sSymbol *nsym;
 
-		if ((nsym = findsymbol(tzSym, 0)) != NULL) {
+		if ((nsym = sym_FindSymbol(tzSym)) != NULL) {
 			if (nsym->nType & SYMF_DEFINED)
 				return;
 		}
@@ -646,34 +745,16 @@ sym_Export(char *tzSym)
 }
 
 /*
- * Import a symbol
- */
-void 
-sym_Import(char *tzSym)
-{
-	if (nPass == 1) {
-		/* only import symbols in pass 1 */
-		struct sSymbol *nsym;
-
-		if (findsymbol(tzSym, NULL)) {
-			yyerror("'%s' already defined", tzSym);
-		}
-		if ((nsym = createsymbol(tzSym)) != NULL)
-			nsym->nType |= SYMF_IMPORT;
-	}
-}
-
-/*
  * Globalize a symbol (export if defined, import if not)
  */
-void 
+void
 sym_Global(char *tzSym)
 {
 	if (nPass == 2) {
 		/* only globalize symbols in pass 2 */
 		struct sSymbol *nsym;
 
-		nsym = findsymbol(tzSym, 0);
+		nsym = sym_FindSymbol(tzSym);
 
 		if ((nsym == NULL) || ((nsym->nType & SYMF_DEFINED) == 0)) {
 			if (nsym == NULL)
@@ -691,7 +772,7 @@ sym_Global(char *tzSym)
 /*
  * Add a macro definition
  */
-void 
+void
 sym_AddMacro(char *tzSym)
 {
 	if ((nPass == 1)
@@ -716,7 +797,7 @@ sym_AddMacro(char *tzSym)
 	}
 }
 
-/* 
+/*
  * Set whether to export all relocable symbols by default
  */
 void sym_SetExportAll(BBOOL set) {
@@ -726,7 +807,7 @@ void sym_SetExportAll(BBOOL set) {
 /*
  * Prepare for pass #1
  */
-void 
+void
 sym_PrepPass1(void)
 {
 	sym_Init();
@@ -735,7 +816,7 @@ sym_PrepPass1(void)
 /*
  * Prepare for pass #2
  */
-void 
+void
 sym_PrepPass2(void)
 {
 	SLONG i;
@@ -760,23 +841,34 @@ sym_PrepPass2(void)
 
 	sym_AddString("__TIME__", SavedTIME);
 	sym_AddString("__DATE__", SavedDATE);
+	sym_AddString("__ISO_8601_LOCAL__", SavedTIMESTAMP_ISO8601_LOCAL);
+	sym_AddString("__ISO_8601_UTC__", SavedTIMESTAMP_ISO8601_UTC);
+	sym_AddString("__UTC_DAY__", SavedDAY);
+	sym_AddString("__UTC_MONTH__", SavedMONTH);
+	sym_AddString("__UTC_YEAR__", SavedYEAR);
+	sym_AddString("__UTC_HOUR__", SavedHOUR);
+	sym_AddString("__UTC_MINUTE__", SavedMINUTE);
+	sym_AddString("__UTC_SECOND__", SavedSECOND);
+	sym_AddEqu("__RGBDS_MAJOR__", PACKAGE_VERSION_MAJOR);
+	sym_AddEqu("__RGBDS_MINOR__", PACKAGE_VERSION_MINOR);
+	sym_AddEqu("__RGBDS_PATCH__", PACKAGE_VERSION_PATCH);
 	sym_AddSet("_RS", 0);
 
 	sym_AddEqu("_NARG", 0);
 	p_NARGSymbol = findsymbol("_NARG", NULL);
 	p_NARGSymbol->Callback = Callback_NARG;
-	
+
 	math_DefinePI();
 }
 
 /*
  * Initialize the symboltable
  */
-void 
+void
 sym_Init(void)
 {
 	SLONG i;
-	time_t tod;
+	time_t now;
 
 	for (i = 0; i < MAXMACROARGS; i += 1) {
 		currentmacroargs[i] = NULL;
@@ -794,15 +886,57 @@ sym_Init(void)
 
 	sym_AddSet("_RS", 0);
 
-	if (time(&tod) != -1) {
-		struct tm *tptr;
+	if (time(&now) != -1) {
+		struct tm *time_local = localtime(&now);
 
-		tptr = localtime(&tod);
-		strftime(SavedTIME, sizeof(SavedTIME), "%H:%M:%S", tptr);
-		strftime(SavedDATE, sizeof(SavedDATE), "%d %B %Y", tptr);
-		sym_AddString("__TIME__", SavedTIME);
-		sym_AddString("__DATE__", SavedDATE);
+		strftime(SavedTIME, sizeof(SavedTIME), "\"%H:%M:%S\"", time_local);
+		strftime(SavedDATE, sizeof(SavedDATE), "\"%d %B %Y\"", time_local);
+		strftime(SavedTIMESTAMP_ISO8601_LOCAL,
+			sizeof(SavedTIMESTAMP_ISO8601_LOCAL), "\"%FT%T%z\"", time_local);
+
+		struct tm *time_utc = gmtime(&now);
+		strftime(SavedTIMESTAMP_ISO8601_UTC,
+			sizeof(SavedTIMESTAMP_ISO8601_UTC), "\"%FT%TZ\"", time_utc);
+
+		strftime(SavedDAY, sizeof(SavedDAY), "%d", time_utc);
+		strftime(SavedMONTH, sizeof(SavedMONTH), "%m", time_utc);
+		strftime(SavedYEAR, sizeof(SavedYEAR), "%Y", time_utc);
+		strftime(SavedHOUR, sizeof(SavedHOUR), "%H", time_utc);
+		strftime(SavedMINUTE, sizeof(SavedMINUTE), "%M", time_utc);
+		strftime(SavedSECOND, sizeof(SavedSECOND), "%S", time_utc);
+
+		helper_RemoveLeadingZeros(SavedDAY);
+		helper_RemoveLeadingZeros(SavedMONTH);
+		helper_RemoveLeadingZeros(SavedHOUR);
+		helper_RemoveLeadingZeros(SavedMINUTE);
+		helper_RemoveLeadingZeros(SavedSECOND);
+	} else {
+		warnx("Couldn't determine current time.");
+		/* The '?' have to be escaped or they will be treated as
+		 * trigraphs... */
+		strcpy(SavedTIME, "\"\?\?:\?\?:\?\?\"");
+		strcpy(SavedDATE, "\"\?\? \?\?\? \?\?\?\?\"");
+		strcpy(SavedTIMESTAMP_ISO8601_LOCAL, "\"\?\?\?\?-\?\?-\?\?T\?\?:\?\?:\?\?+\?\?\?\?\"");
+		strcpy(SavedTIMESTAMP_ISO8601_UTC, "\"\?\?\?\?-\?\?-\?\?T\?\?:\?\?:\?\?Z\"");
+		strcpy(SavedDAY, "1");
+		strcpy(SavedMONTH, "1");
+		strcpy(SavedYEAR, "1900");
+		strcpy(SavedHOUR, "0");
+		strcpy(SavedMINUTE, "0");
+		strcpy(SavedSECOND, "0");
 	}
+
+	sym_AddString("__TIME__", SavedTIME);
+	sym_AddString("__DATE__", SavedDATE);
+	sym_AddString("__ISO_8601_LOCAL__", SavedTIMESTAMP_ISO8601_LOCAL);
+	sym_AddString("__ISO_8601_UTC__", SavedTIMESTAMP_ISO8601_UTC);
+	sym_AddString("__UTC_DAY__", SavedDAY);
+	sym_AddString("__UTC_MONTH__", SavedMONTH);
+	sym_AddString("__UTC_YEAR__", SavedYEAR);
+	sym_AddString("__UTC_HOUR__", SavedHOUR);
+	sym_AddString("__UTC_MINUTE__", SavedMINUTE);
+	sym_AddString("__UTC_SECOND__", SavedSECOND);
+
 	pScope = NULL;
 
 	math_DefinePI();
