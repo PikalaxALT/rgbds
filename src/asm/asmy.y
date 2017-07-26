@@ -29,12 +29,12 @@ bankrangecheck(char *name, ULONG secttype, SLONG org, SLONG bank)
 	case SECT_ROMX:
 		stype = "ROMX";
 		minbank = 1;
-		maxbank = 0x1ff;
+		maxbank = 0xffff;
 		break;
 	case SECT_SRAM:
 		stype = "SRAM";
 		minbank = 0;
-		maxbank = 0x1ff;
+		maxbank = 0xff;
 		break;
 	case SECT_WRAMX:
 		stype = "WRAMX";
