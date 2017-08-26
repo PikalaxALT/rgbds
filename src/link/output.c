@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "extern/err.h"
 #include "link/mylink.h"
 #include "link/mapfile.h"
 #include "link/main.h"
@@ -24,7 +25,10 @@ writehome(FILE * f, FILE * f_overlay)
 
 	if (f_overlay != NULL) {
 		fseek(f_overlay, 0L, SEEK_SET);
-		fread(mem, 1, MaxAvail[BANK_ROM0], f_overlay);
+		if (fread(mem, 1, MaxAvail[BANK_ROM0], f_overlay) !=
+		    MaxAvail[BANK_ROM0]) {
+			warnx("Failed to read data from overlay file.");
+		}
 	} else {
 		memset(mem, fillchar, MaxAvail[BANK_ROM0]);
 	}
@@ -58,7 +62,10 @@ writebank(FILE * f, FILE * f_overlay, SLONG bank)
 
 	if (f_overlay != NULL && bank <= MaxOverlayBank) {
 		fseek(f_overlay, bank*0x4000, SEEK_SET);
-		fread(mem, 1, MaxAvail[bank], f_overlay);
+		if (fread(mem, 1, MaxAvail[bank], f_overlay) !=
+		    MaxAvail[bank]) {
+			warnx("Failed to read data from overlay file.");
+		}
 	} else {
 		memset(mem, fillchar, MaxAvail[bank]);
 	}
@@ -104,18 +111,15 @@ Output(void)
 		if (tzOverlayname) {
 			f_overlay = fopen(tzOverlayname, "rb");
 			if (!f_overlay) {
-				fprintf(stderr, "Failed to open overlay file %s\n", tzOverlayname);
-				exit(1);
+				errx(1, "Failed to open overlay file %s\n", tzOverlayname);
 			}
 			fseek(f_overlay, 0, SEEK_END);
 			if (ftell(f_overlay) % 0x4000 != 0) {
-				fprintf(stderr, "Overlay file must be aligned to 0x4000 bytes\n");
-				exit(1);
+				errx(1, "Overlay file must be aligned to 0x4000 bytes.");
 			}
 			MaxOverlayBank = (ftell(f_overlay) / 0x4000) - 1;
 			if (MaxOverlayBank < 1) {
-				fprintf(stderr, "Overlay file be at least 0x8000 bytes\n");
-				exit(1);
+				errx(1, "Overlay file must be at least 0x8000 bytes.");
 			}
 			if (MaxOverlayBank > MaxBankUsed) {
 				MaxBankUsed = MaxOverlayBank;
