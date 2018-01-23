@@ -336,7 +336,7 @@ AssignFloatingBankSections(enum eSectionType type)
 
 		if ((org = area_AllocAnyBank(pSection->nByteSize, pSection->nAlign, type)) != -1) {
 			if (options & OPT_OVERLAY) {
-				errx(1, "All sections must be fixed when using overlay");
+				errx(1, "All sections must be fixed when using an overlay file.");
 			}
 			pSection->nOrg = org & 0xFFFF;
 			pSection->nBank = org >> 16;
@@ -520,7 +520,7 @@ AssignSections(void)
 		if (pSection->oAssigned == 0
 			&& pSection->nOrg != -1 && pSection->nBank == -1) {
 			if (options & OPT_OVERLAY) {
-				errx(1, "All sections must be fixed when using overlay");
+				errx(1, "All sections must be fixed when using an overlay file.");
 			}
 			switch (pSection->Type) {
 			case SECT_ROMX:
@@ -574,16 +574,21 @@ CreateSymbolTable(void)
 			    ((pSect->tSymbols[i]->pSection == pSect) ||
 				(pSect->tSymbols[i]->pSection == NULL))) {
 				if (pSect->tSymbols[i]->pSection == NULL)
-					sym_CreateSymbol(pSect->tSymbols[i]->
-					    pzName,
-					    pSect->tSymbols[i]->
-					    nOffset, -1);
+					sym_CreateSymbol(
+						pSect->tSymbols[i]->pzName,
+						pSect->tSymbols[i]->nOffset,
+						-1,
+						pSect->tSymbols[i]->pzObjFileName,
+						pSect->tSymbols[i]->pzFileName,
+						pSect->tSymbols[i]->nFileLine);
 				else
-					sym_CreateSymbol(pSect->tSymbols[i]->
-					    pzName,
-					    pSect->nOrg +
-					    pSect->tSymbols[i]->
-					    nOffset, pSect->nBank);
+					sym_CreateSymbol(
+						pSect->tSymbols[i]->pzName,
+						pSect->nOrg + pSect->tSymbols[i]->nOffset,
+						pSect->nBank,
+						pSect->tSymbols[i]->pzObjFileName,
+						pSect->tSymbols[i]->pzFileName,
+						pSect->tSymbols[i]->nFileLine);
 			}
 		}
 		pSect = pSect->pNext;
