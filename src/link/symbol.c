@@ -1,79 +1,88 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "extern/err.h"
+
 #include "link/main.h"
 #include "link/patch.h"
+
 #include "types.h"
 
 #define HASHSIZE 73
 
 struct ISymbol {
 	char *pzName;
-	SLONG nValue;
-	SLONG nBank; /* -1 = constant */
-	char tzObjFileName[_MAX_PATH + 1]; /* Object file where the symbol was defined. */
-	char tzFileName[_MAX_PATH + 1]; /* Source file where the symbol was defined. */
-	ULONG nFileLine; /* Line where the symbol was defined. */
+	int32_t nValue;
+	int32_t nBank; /* -1 = constant */
+	 /* Object file where the symbol was defined. */
+	char tzObjFileName[_MAX_PATH + 1];
+	/* Source file where the symbol was defined. */
+	char tzFileName[_MAX_PATH + 1];
+	/* Line where the symbol was defined. */
+	uint32_t nFileLine;
 	struct ISymbol *pNext;
 };
 
 struct ISymbol *tHash[HASHSIZE];
 
-SLONG
-calchash(char *s)
+int32_t calchash(char *s)
 {
-	SLONG r = 0;
+	int32_t r = 0;
+
 	while (*s)
 		r += *s++;
 
-	return (r % HASHSIZE);
+	return r % HASHSIZE;
 }
 
-void
-sym_Init(void)
+void sym_Init(void)
 {
-	SLONG i;
+	int32_t i;
+
 	for (i = 0; i < HASHSIZE; i += 1)
 		tHash[i] = NULL;
 }
 
-SLONG
-sym_GetValue(char *tzName)
+int32_t sym_GetValue(char *tzName)
 {
-	if (strcmp(tzName, "@") == 0) {
-		return (nPC);
-	} else {
-		struct ISymbol **ppSym;
+	if (strcmp(tzName, "@") == 0)
+		return nPC;
 
-		ppSym = &(tHash[calchash(tzName)]);
-		while (*ppSym) {
-			if (strcmp(tzName, (*ppSym)->pzName)) {
-				ppSym = &((*ppSym)->pNext);
-			} else {
-				return ((*ppSym)->nValue);
-			}
-		}
+	struct ISymbol **ppSym;
 
-		printf("Unknown symbol '%s'\n", tzName);
-		linker_error = 1;
-		return (0);
+	ppSym = &(tHash[calchash(tzName)]);
+	while (*ppSym) {
+		if (strcmp(tzName, (*ppSym)->pzName))
+			ppSym = &((*ppSym)->pNext);
+		else
+			return ((*ppSym)->nValue);
 	}
+
+	errx(1, "Unknown symbol '%s'", tzName);
+	linker_error = 1;
+	return (0);
 }
 
-SLONG
-sym_GetBank(char *tzName)
+int32_t sym_GetBank(char *tzName)
 {
 	struct ISymbol **ppSym;
 
 	ppSym = &(tHash[calchash(tzName)]);
 	while (*ppSym) {
-		if (strcmp(tzName, (*ppSym)->pzName)) {
+		if (strcmp(tzName, (*ppSym)->pzName))
 			ppSym = &((*ppSym)->pNext);
-		} else {
+		else
 			return ((*ppSym)->nBank);
-		}
 	}
 
 	printf("Unknown symbol '%s'\n", tzName);
@@ -81,9 +90,8 @@ sym_GetBank(char *tzName)
 	return (0);
 }
 
-void
-sym_CreateSymbol(char *tzName, SLONG nValue, SLONG nBank, char *tzObjFileName,
-		char *tzFileName, ULONG nFileLine)
+void sym_CreateSymbol(char *tzName, int32_t nValue, int32_t nBank,
+		      char *tzObjFileName, char *tzFileName, uint32_t nFileLine)
 {
 	if (strcmp(tzName, "@") == 0)
 		return;
@@ -100,14 +108,18 @@ sym_CreateSymbol(char *tzName, SLONG nValue, SLONG nBank, char *tzObjFileName,
 				return;
 
 			errx(1, "'%s' in both %s : %s(%d) and %s : %s(%d)",
-				tzName, tzObjFileName, tzFileName, nFileLine,
-				(*ppSym)->tzObjFileName,
-				(*ppSym)->tzFileName, (*ppSym)->nFileLine);
+			     tzName, tzObjFileName, tzFileName, nFileLine,
+			     (*ppSym)->tzObjFileName,
+			     (*ppSym)->tzFileName, (*ppSym)->nFileLine);
 		}
 	}
 
-	if ((*ppSym = malloc(sizeof **ppSym))) {
-		if (((*ppSym)->pzName = malloc(strlen(tzName) + 1))) {
+	*ppSym = malloc(sizeof **ppSym);
+
+	if (*ppSym != NULL) {
+		(*ppSym)->pzName = malloc(strlen(tzName) + 1);
+
+		if ((*ppSym)->pzName != NULL) {
 			strcpy((*ppSym)->pzName, tzName);
 			(*ppSym)->nValue = nValue;
 			(*ppSym)->nBank = nBank;

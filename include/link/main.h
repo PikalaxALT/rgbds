@@ -1,10 +1,18 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef RGBDS_LINK_MAIN_H
 #define RGBDS_LINK_MAIN_H
 
-#include "types.h"
+#include <stdint.h>
 
-extern SLONG fillchar;
+extern int32_t fillchar;
 extern char *smartlinkstartsymbol;
-extern UBYTE linker_error;
+extern uint8_t linker_error;
 
-#endif
+#endif /* RGBDS_LINK_MAIN_H */

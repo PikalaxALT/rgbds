@@ -2,6 +2,8 @@ language: c
 sudo: required
 install:
   - ./.travis-deps.sh
+  - make
+  - sudo make install
 os:
   - linux
   - osx
@@ -9,8 +11,9 @@ compiler:
   - clang
   - gcc
 script:
-  - make
-  - sudo make install
-after_success:
-  - pushd test/asm/ && ./test.sh && popd
-  - pushd test/link/ && ./test.sh && popd
+  - cd test && ./run-tests.sh
+matrix:
+  include:
+    - env: _="checkpatch"
+      script:
+        - ./.travis-checkpatch.sh

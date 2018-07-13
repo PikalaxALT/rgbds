@@ -1,17 +1,9 @@
 /*
- * Copyright © 2010 Anthony J. Bentley <anthonyjbentley@gmail.com>
+ * This file is part of RGBDS.
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
+ * Copyright (c) 2010-2018, Anthony J. Bentley and RGBDS contributors.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * SPDX-License-Identifier: MIT
  */
 
 #include <stdbool.h>
@@ -22,23 +14,19 @@
 #include <unistd.h>
 
 #include "extern/err.h"
-#include "extern/version.h"
 
-char *progname;
+#include "version.h"
 
-static void
-usage(void)
+static void print_usage(void)
 {
 	printf(
-"usage: rgbfix [-CcjsVv] [-i game_id] [-k licensee_str] [-l licensee_id]\n"
-"              [-m mbc_type] [-n rom_version] [-p pad_value] [-r ram_size]\n"
-"              [-t title_str] [-x tpp_version] file\n\n\n"
-"RGBFIX for TPPX cartridge spec, version 1.0.6\n");
+"usage: rgbfix [-CcjsVv] [-f fix_spec] [-i game_id] [-k licensee_str]\n"
+"              [-l licensee_id] [-m mbc_type] [-n rom_version] [-p pad_value]\n"
+"              [-r ram_size] [-t title_str] [-x tpp_version] file\n");
 	exit(1);
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	FILE *rom;
 	int ch;
@@ -49,7 +37,12 @@ main(int argc, char *argv[])
 	 */
 
 	/* all flags default to false unless options specify otherwise */
-	bool validate = false;
+	bool fixlogo = false;
+	bool fixheadsum = false;
+	bool fixglobalsum = false;
+	bool trashlogo = false;
+	bool trashheadsum = false;
+	bool trashglobalsum = false;
 	bool settitle = false;
 	bool setid = false;
 	bool colorcompatible = false;
@@ -76,7 +69,7 @@ main(int argc, char *argv[])
 	bool tppspec = false;
 	int tppversion;
 
-	while ((ch = getopt(argc, argv, "Cci:jk:l:m:n:p:sr:t:Vvx:")) != -1) {
+	while ((ch = getopt(argc, argv, "Ccf:i:jk:l:m:n:p:sr:t:Vvx:")) != -1) {
 		switch (ch) {
 		case 'C':
 			coloronly = true;
@@ -84,13 +77,20 @@ main(int argc, char *argv[])
 		case 'c':
 			colorcompatible = true;
 			break;
+		case 'f':
+			fixlogo = strchr(optarg, 'l');
+			fixheadsum = strchr(optarg, 'h');
+			fixglobalsum = strchr(optarg, 'g');
+			trashlogo = strchr(optarg, 'L');
+			trashheadsum = strchr(optarg, 'H');
+			trashglobalsum = strchr(optarg, 'G');
+			break;
 		case 'i':
 			setid = true;
 
-			if (strlen(optarg) != 4) {
-				errx(1, "Game ID %s must be exactly 4 "
-				    "characters", optarg);
-			}
+			if (strlen(optarg) != 4)
+				errx(1, "Game ID %s must be exactly 4 characters",
+				     optarg);
 
 			id = optarg;
 			break;
@@ -100,10 +100,9 @@ main(int argc, char *argv[])
 		case 'k':
 			setnewlicensee = true;
 
-			if (strlen(optarg) != 2) {
-				errx(1, "New licensee code %s is not the "
-				    "correct length of 2 characters", optarg);
-			}
+			if (strlen(optarg) != 2)
+				errx(1, "New licensee code %s is not the correct length of 2 characters",
+				     optarg);
 
 			newlicensee = optarg;
 			break;
@@ -111,61 +110,59 @@ main(int argc, char *argv[])
 			setlicensee = true;
 
 			licensee = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'l'");
-			}
-			if (licensee < 0 || licensee > 0xFF) {
-				errx(1, "Argument for option 'l' must be "
-				    "between 0 and 255");
-			}
+
+			if (licensee < 0 || licensee > 0xFF)
+				errx(1, "Argument for option 'l' must be between 0 and 255");
+
 			break;
 		case 'm':
 			setcartridge = true;
 
 			cartridge = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'm'");
-			}
-			if (cartridge < 0 || cartridge > 0xFF) {
-				errx(1, "Argument for option 'm' must be "
-				    "between 0 and 255");
-			}
+
+			if (cartridge < 0 || cartridge > 0xFF)
+				errx(1, "Argument for option 'm' must be between 0 and 255");
+
 			break;
 		case 'n':
 			setversion = true;
 
 			version = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'n'");
-			}
-			if (version < 0 || version > 0xFF) {
-				errx(1, "Argument for option 'n' must be "
-				    "between 0 and 255");
-			}
+
+			if (version < 0 || version > 0xFF)
+				errx(1, "Argument for option 'n' must be between 0 and 255");
+
 			break;
 		case 'p':
 			resize = true;
 
 			padvalue = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'p'");
-			}
-			if (padvalue < 0 || padvalue > 0xFF) {
-				errx(1, "Argument for option 'p' must be "
-				    "between 0 and 255");
-			}
+
+			if (padvalue < 0 || padvalue > 0xFF)
+				errx(1, "Argument for option 'p' must be between 0 and 255");
+
 			break;
 		case 'r':
 			setramsize = true;
 
 			ramsize = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'r'");
-			}
-			if (ramsize < 0 || ramsize > 0xFF) {
-				errx(1, "Argument for option 'r' must be "
-				    "between 0 and 255");
-			}
+
+			if (ramsize < 0 || ramsize > 0xFF)
+				errx(1, "Argument for option 'r' must be between 0 and 255");
+
 			break;
 		case 's':
 			super = true;
@@ -173,22 +170,23 @@ main(int argc, char *argv[])
 		case 't':
 			settitle = true;
 
-			if (strlen(optarg) > 16) {
-				errx(1, "Title %s is greater than the "
-				    "maximum of 16 characters", optarg);
-			}
+			if (strlen(optarg) > 16)
+				errx(1, "Title \"%s\" is greater than the maximum of 16 characters",
+				     optarg);
 
 			if (strlen(optarg) == 16)
-				warnx("Title %s is 16 chars, it is best to "
-				    "keep it to 15 or fewer", optarg);
+				warnx("Title \"%s\" is 16 chars, it is best to keep it to 15 or fewer",
+				      optarg);
 
 			title = optarg;
 			break;
 		case 'V':
-			printf("rgbfix %s\n", get_package_version_string());
+			printf("rgbfix-tpp1spec %s\n", get_package_version_string());
 			exit(0);
 		case 'v':
-			validate = true;
+			fixlogo = true;
+			fixheadsum = true;
+			fixglobalsum = true;
 			break;
 		case 'x':
 			tppspec = true;
@@ -207,7 +205,7 @@ main(int argc, char *argv[])
 			}
 			break;
 		default:
-			usage();
+			print_usage();
 			/* NOTREACHED */
 		}
 	}
@@ -216,21 +214,32 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc == 0)
-		usage();
+		print_usage();
 
 	/*
 	 * Open the ROM file
 	 */
 
-	if ((rom = fopen(argv[argc - 1], "rb+")) == NULL) {
+	rom = fopen(argv[argc - 1], "rb+");
+
+	if (rom == NULL)
 		err(1, "Error opening file %s", argv[argc - 1]);
-	}
 
 	/*
-	 * Write changes to ROM
+	 * Read ROM header
+	 *
+	 * Offsets in the buffer are 0x100 less than the equivalent in ROM.
 	 */
 
-	if (validate) {
+	uint8_t header[0x54];
+
+	if (fseek(rom, 0x100, SEEK_SET) != 0)
+		err(1, "Could not locate ROM header");
+	if (fread(header, sizeof(uint8_t), sizeof(header), rom)
+	    != sizeof(header))
+		err(1, "Could not read ROM header");
+
+	if (fixlogo || trashlogo) {
 		/*
 		 * Offset 0x104–0x133: Nintendo Logo
 		 * This is a bitmap image that displays when the Game Boy is
@@ -240,7 +249,7 @@ main(int argc, char *argv[])
 		/*
 		 * See also: global checksums at 0x14D–0x14F, They must
 		 * also be correct for the game to boot, so we fix them
-		 * as well when the -v flag is set.
+		 * as well when requested with the -f flag.
 		 */
 
 		uint8_t ninlogo[48] = {
@@ -252,8 +261,12 @@ main(int argc, char *argv[])
 			0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 		};
 
-		fseek(rom, 0x104, SEEK_SET);
-		fwrite(ninlogo, 1, 48, rom);
+		if (trashlogo) {
+			for (int i = 0; i < sizeof(ninlogo); i++)
+				ninlogo[i] = ~ninlogo[i];
+		}
+
+		memcpy(header + 0x04, ninlogo, sizeof(ninlogo));
 	}
 
 	if (settitle) {
@@ -274,11 +287,10 @@ main(int argc, char *argv[])
 		 * characters may conflict with the title.
 		 */
 
-		fseek(rom, 0x134, SEEK_SET);
-		fwrite(title, 1, strlen(title) + 1, rom);
+		int n = snprintf((char *)header + 0x34, 16, "%s", title);
 
-		while (ftell(rom) < 0x143)
-			fputc(0, rom);
+		for (int i = 16; i > n; i--)
+			header[0x34 + i] = '\0';
 	}
 
 	if (setid) {
@@ -288,8 +300,7 @@ main(int argc, char *argv[])
 		 * characters).
 		 */
 
-		fseek(rom,0x13F,SEEK_SET);
-		fwrite(id, 1, 4, rom);
+		memcpy(header + 0x3F, id, 4);
 	}
 
 	if (colorcompatible) {
@@ -307,20 +318,12 @@ main(int argc, char *argv[])
 		 * may conflict.
 		 */
 
-		uint8_t byte;
-
-		fseek(rom, 0x143, SEEK_SET);
-		byte = fgetc(rom);
-
-		byte |= 1 << 7;
+		header[0x43] |= 1 << 7;
 		if (coloronly)
-			byte |= 1 << 6;
+			header[0x43] |= 1 << 6;
 
-		if (byte & 0x3F)
+		if (header[0x43] & 0x3F)
 			warnx("Color flag conflicts with game title");
-
-		fseek(rom, 0x143, SEEK_SET);
-		fputc(byte, rom);
 	}
 
 	if (setnewlicensee) {
@@ -336,8 +339,8 @@ main(int argc, char *argv[])
 		 * as a Super Game Boy flag.
 		 */
 
-		fseek(rom, 0x144, SEEK_SET);
-		fwrite(newlicensee, 1, 2, rom);
+		header[0x44] = newlicensee[0];
+		header[0x45] = newlicensee[1];
 	}
 
 	if (super) {
@@ -354,11 +357,9 @@ main(int argc, char *argv[])
 		 */
 
 		if (!setlicensee)
-			warnx("You should probably set both '-s' and "
-			    "'-l 0x33'");
+			warnx("You should probably set both '-s' and '-l 0x33'");
 
-		fseek(rom, 0x146, SEEK_SET);
-		fputc(3, rom);
+		header[0x46] = 3;
 	}
 
 	if (setcartridge) {
@@ -371,12 +372,13 @@ main(int argc, char *argv[])
 		 * carts, which use 0x153 instead.
 		 */
 
-		fseek(rom, 0x147, SEEK_SET);
+		header[0x47] = cartridge;
 		if (tppspec) {
-			fputc(0xbc, rom);
-			fseek(rom, 0x153, SEEK_SET);
+			header[0x47] = 0xbc;
+			header[0x53] = cartridge;
+		} else {
+			header[0x47] = cartridge;
 		}
-		fputc(cartridge, rom);
 	}
 
 	if (resize) {
@@ -389,8 +391,14 @@ main(int argc, char *argv[])
 		long romsize, newsize;
 		int headbyte;
 		uint8_t *buf;
-		fseek(rom, 0, SEEK_END);
+
+		if (fseek(rom, 0, SEEK_END) != 0)
+			err(1, "Could not pad ROM file");
+
 		romsize = ftell(rom);
+		if (romsize == -1)
+			err(1, "Could not pad ROM file");
+
 		newsize = 0x8000;
 
 		headbyte = 0;
@@ -399,17 +407,20 @@ main(int argc, char *argv[])
 			headbyte++;
 		}
 
-		if (tppspec && (newsize > 0x40000000)) /* ROM is bigger than 1GiB */
+		if (tppspec && (newsize > 0x40000000))
 			warnx("ROM size is bigger than 1GiB");
-		else if (!tppspec && (newsize > 0x800000)) /* ROM is bigger than 8MiB */
+		else if (!tppspec && (newsize > 0x800000))
 			warnx("ROM size is bigger than 8MiB");
 
 		buf = malloc(newsize - romsize);
-		memset(buf, padvalue, newsize - romsize);
-		fwrite(buf, 1, newsize - romsize, rom);
+		if (buf == NULL)
+			errx(1, "Couldn't allocate memory for padded ROM.");
 
-		fseek(rom, 0x148, SEEK_SET);
-		fputc(headbyte, rom);
+		memset(buf, padvalue, newsize - romsize);
+		if (fwrite(buf, 1, newsize - romsize, rom) != newsize - romsize)
+			err(1, "Could not pad ROM file");
+
+		header[0x48] = headbyte;
 
 		free(buf);
 	}
@@ -422,15 +433,15 @@ main(int argc, char *argv[])
 		 * carts, which use 0x152 instead.
 		 */
 
-		fseek(rom, 0x149, SEEK_SET);
 		if (tppspec) {
-			fputc(0xc1, rom);
-			fseek(rom, 0x152, SEEK_SET);
+			header[0x49] = 0xc1;
+			header[0x52] = ramsize;
+		} else {
+			header[0x49] = ramsize;
 		}
-		fputc(ramsize, rom);
 	}
 
-	if (nonjapan) {
+	if (nonjapan && !tppspec) {
 		/*
 		 * Offset 0x14A: Non-Japanese Region Flag
 		 *
@@ -438,12 +449,11 @@ main(int argc, char *argv[])
 		 * carts.
 		 */
 
-		fseek(rom, 0x14A, SEEK_SET);
-		if (tppspec) {
-			fputc(0x65, rom);
-		} else {
-			fputc(1, rom);
-		}
+		header[0x4A] = 1;
+	}
+
+	if(tppspec){
+		header[0x4A] = 0x65;
 	}
 
 	if (setlicensee) {
@@ -459,8 +469,7 @@ main(int argc, char *argv[])
 		 * See also: the New Licensee ID at 0x144–0x145.
 		 */
 
-		fseek(rom, 0x14B, SEEK_SET);
-		fputc(licensee, rom);
+		header[0x4B] = licensee;
 	}
 
 	if (setversion) {
@@ -469,8 +478,7 @@ main(int argc, char *argv[])
 		 * Which version of the ROM this is.
 		 */
 
-		fseek(rom, 0x14C, SEEK_SET);
-		fputc(version, rom);
+		header[0x4C] = version;
 	}
 
 	if (tppspec) {
@@ -480,49 +488,72 @@ main(int argc, char *argv[])
 		 * Pass as a single unsigned short
 		 */
 
-		fseek(rom, 0x150, SEEK_SET);
-		fputc(tppversion >> 8, rom);
-		fputc(tppversion & 0xFF, rom);
+		header[0x50] = tppversion >> 8;
+		header[0x51] = tppversion & 0xFF;
 	}
 
-	if (validate) {
+	if (fixheadsum || trashheadsum) {
 		/*
 		 * Offset 0x14D: Header Checksum
 		 */
 
-		uint8_t headcksum;
+		uint8_t headcksum = 0;
 
-		headcksum = 0;
-		fseek(rom, 0x134, SEEK_SET);
-		for (int i = 0; i < (0x14D - 0x134); ++i)
-			headcksum = headcksum - fgetc(rom) - 1;
+		for (int i = 0x34; i < 0x4D; ++i)
+			headcksum = headcksum - header[i] - 1;
 
-		fseek(rom, 0x14D, SEEK_SET);
-		fputc(headcksum, rom);
+		if (trashheadsum)
+			headcksum = ~headcksum;
 
+		header[0x4D] = headcksum;
+	}
+
+	/*
+	 * Before calculating the global checksum, we must write the modified
+	 * header to the ROM.
+	 */
+
+	if (fseek(rom, 0x100, SEEK_SET) != 0)
+		err(1, "Could not locate header for writing");
+
+	if (fwrite(header, sizeof(uint8_t), sizeof(header), rom)
+	    != sizeof(header))
+		err(1, "Could not write modified ROM header");
+
+	if (fixglobalsum || trashglobalsum) {
 		/*
 		 * Offset 0x14E–0x14F: Global Checksum
 		 */
 
-		uint16_t globalcksum;
+		uint16_t globalcksum = 0;
 
-		globalcksum = 0;
+		if (fseek(rom, 0, SEEK_SET) != 0)
+			err(1, "Could not start calculating global checksum");
 
-		rewind(rom);
-		for (int i = 0; i < 0x14E; ++i)
-			globalcksum += fgetc(rom);
-
+		int i = 0;
 		int byte;
-		fseek(rom, 0x150, SEEK_SET);
-		while ((byte = fgetc(rom)) != EOF)
-			globalcksum += byte;
+
+		while ((byte = fgetc(rom)) != EOF) {
+			if (i != 0x14E && i != 0x14F)
+				globalcksum += byte;
+			i++;
+		}
+
+		if (ferror(rom))
+			err(1, "Could not calculate global checksum");
+
+		if (trashglobalsum)
+			globalcksum = ~globalcksum;
 
 		fseek(rom, 0x14E, SEEK_SET);
 		fputc(globalcksum >> 8, rom);
 		fputc(globalcksum & 0xFF, rom);
+		if (ferror(rom))
+			err(1, "Could not write global checksum");
 	}
 
-	fclose(rom);
+	if (fclose(rom) != 0)
+		err(1, "Could not complete ROM write");
 
 	return 0;
 }
