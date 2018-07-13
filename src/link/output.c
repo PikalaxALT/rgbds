@@ -1,6 +1,17 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "extern/err.h"
 
 #include "link/mylink.h"
 #include "link/mapfile.h"
@@ -8,25 +19,27 @@
 #include "link/assign.h"
 
 char *tzOutname;
-char *tzOverlayname = NULL;
+char *tzOverlayname;
 
-SLONG MaxOverlayBank;
+int32_t MaxOverlayBank;
 
-void
-writehome(FILE * f, FILE * f_overlay)
+void writehome(FILE *f, FILE *f_overlay)
 {
-	struct sSection *pSect;
-	UBYTE *mem;
+	const struct sSection *pSect;
+	uint8_t *mem;
 
-	mem = malloc(MaxAvail[BANK_ROM0]);
+	mem = malloc(MaxAvail[BANK_INDEX_ROM0]);
 	if (!mem)
 		return;
 
 	if (f_overlay != NULL) {
 		fseek(f_overlay, 0L, SEEK_SET);
-		fread(mem, 1, MaxAvail[BANK_ROM0], f_overlay);
+		if (fread(mem, 1, MaxAvail[BANK_INDEX_ROM0], f_overlay) !=
+		    MaxAvail[BANK_INDEX_ROM0]) {
+			warnx("Failed to read data from overlay file.");
+		}
 	} else {
-		memset(mem, fillchar, MaxAvail[BANK_ROM0]);
+		memset(mem, fillchar, MaxAvail[BANK_INDEX_ROM0]);
 	}
 	MapfileInitBank(0);
 
@@ -34,7 +47,7 @@ writehome(FILE * f, FILE * f_overlay)
 	while (pSect) {
 		if (pSect->Type == SECT_ROM0) {
 			memcpy(mem + pSect->nOrg, pSect->pData,
-				pSect->nByteSize);
+			       pSect->nByteSize);
 			MapfileWriteSection(pSect);
 		}
 		pSect = pSect->pNext;
@@ -42,23 +55,23 @@ writehome(FILE * f, FILE * f_overlay)
 
 	MapfileCloseBank(area_Avail(0));
 
-	fwrite(mem, 1, MaxAvail[BANK_ROM0], f);
+	fwrite(mem, 1, MaxAvail[BANK_INDEX_ROM0], f);
 	free(mem);
 }
 
-void
-writebank(FILE * f, FILE * f_overlay, SLONG bank)
+void writebank(FILE *f, FILE *f_overlay, int32_t bank)
 {
-	struct sSection *pSect;
-	UBYTE *mem;
+	const struct sSection *pSect;
+	uint8_t *mem;
 
 	mem = malloc(MaxAvail[bank]);
 	if (!mem)
 		return;
 
 	if (f_overlay != NULL && bank <= MaxOverlayBank) {
-		fseek(f_overlay, bank*0x4000, SEEK_SET);
-		fread(mem, 1, MaxAvail[bank], f_overlay);
+		fseek(f_overlay, bank * 0x4000, SEEK_SET);
+		if (fread(mem, 1, MaxAvail[bank], f_overlay) != MaxAvail[bank])
+			warnx("Failed to read data from overlay file.");
 	} else {
 		memset(mem, fillchar, MaxAvail[bank]);
 	}
@@ -68,7 +81,7 @@ writebank(FILE * f, FILE * f_overlay, SLONG bank)
 	while (pSect) {
 		if (pSect->Type == SECT_ROMX && pSect->nBank == bank) {
 			memcpy(mem + pSect->nOrg - 0x4000, pSect->pData,
-				pSect->nByteSize);
+			       pSect->nByteSize);
 			MapfileWriteSection(pSect);
 		}
 		pSect = pSect->pNext;
@@ -80,66 +93,80 @@ writebank(FILE * f, FILE * f_overlay, SLONG bank)
 	free(mem);
 }
 
-void
-out_Setname(char *tzOutputfile)
+void out_Setname(char *tzOutputfile)
 {
 	tzOutname = tzOutputfile;
 }
 
-void
-out_SetOverlayname(char *tzOverlayfile)
+void out_SetOverlayname(char *tzOverlayfile)
 {
 	tzOverlayname = tzOverlayfile;
 }
 
-
-void
-Output(void)
+void Output(void)
 {
-	SLONG i;
+	int32_t i;
 	FILE *f;
 	FILE *f_overlay = NULL;
 
-	if ((f = fopen(tzOutname, "wb"))) {
-		if (tzOverlayname) {
-			f_overlay = fopen(tzOverlayname, "rb");
-			if (!f_overlay) {
-				fprintf(stderr, "Failed to open overlay file %s\n", tzOverlayname);
-				exit(1);
-			}
-			fseek(f_overlay, 0, SEEK_END);
-			if (ftell(f_overlay) % 0x4000 != 0) {
-				fprintf(stderr, "Overlay file must be aligned to 0x4000 bytes\n");
-				exit(1);
-			}
-			MaxOverlayBank = (ftell(f_overlay) / 0x4000) - 1;
-			if (MaxOverlayBank < 1) {
-				fprintf(stderr, "Overlay file be at least 0x8000 bytes\n");
-				exit(1);
-			}
-			if (MaxOverlayBank > MaxBankUsed) {
-				MaxBankUsed = MaxOverlayBank;
-			}
+	/*
+	 * Load overlay
+	 */
+
+	if (tzOverlayname) {
+		f_overlay = fopen(tzOverlayname, "rb");
+
+		if (!f_overlay) {
+			errx(1, "Failed to open overlay file %s\n",
+			     tzOverlayname);
 		}
 
+		fseek(f_overlay, 0, SEEK_END);
+
+		if (ftell(f_overlay) % 0x4000 != 0)
+			errx(1, "Overlay file must be aligned to 0x4000 bytes.");
+
+		MaxOverlayBank = (ftell(f_overlay) / 0x4000) - 1;
+
+		if (MaxOverlayBank < 1)
+			errx(1, "Overlay file must be at least 0x8000 bytes.");
+
+		if (MaxOverlayBank > MaxBankUsed)
+			MaxBankUsed = MaxOverlayBank;
+	}
+
+	/*
+	 * Write ROM.
+	 */
+
+	f = fopen(tzOutname, "wb");
+	if (f != NULL) {
 		writehome(f, f_overlay);
 		for (i = 1; i <= MaxBankUsed; i += 1)
 			writebank(f, f_overlay, i);
 
 		fclose(f);
-
-		if (tzOverlayname) {
-			fclose(f_overlay);
-		}
 	}
-	for (i = BANK_WRAM0; i < MAXBANKS; i++) {
-		struct sSection *pSect;
+
+	/*
+	 * Close overlay
+	 */
+
+	if (tzOverlayname)
+		fclose(f_overlay);
+
+	/*
+	 * Add regular sections to map and sym files.
+	 */
+
+	for (i = BANK_INDEX_WRAM0; i < BANK_INDEX_MAX; i++) {
+		const struct sSection *pSect;
+
 		MapfileInitBank(i);
 		pSect = pSections;
 		while (pSect) {
-			if (pSect->nBank == i) {
+			if (pSect->nBank == i)
 				MapfileWriteSection(pSect);
-			}
 			pSect = pSect->pNext;
 		}
 		MapfileCloseBank(area_Avail(i));

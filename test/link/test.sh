@@ -1,3 +1,4 @@
+#!/bin/sh
 otemp=$(mktemp)
 gbtemp=$(mktemp)
 gbtemp2=$(mktemp)
@@ -52,6 +53,11 @@ $RGBLINK -o $gbtemp $otemp
 $RGBASM -o $otemp high-low-b.asm
 $RGBLINK -o $gbtemp2 $otemp
 diff $gbtemp $gbtemp2
+rc=$(($? || $rc))
+
+$RGBASM -o $otemp all-instructions.asm
+$RGBLINK -o $gbtemp $otemp
+diff all-instructions.out.bin $gbtemp
 rc=$(($? || $rc))
 
 exit $rc

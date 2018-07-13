@@ -1,92 +1,106 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "extern/err.h"
+
 #include "link/assign.h"
+#include "link/main.h"
 #include "link/mylink.h"
 #include "link/symbol.h"
-#include "link/main.h"
 
-struct sSection *pCurrentSection;
-SLONG rpnstack[256];
-SLONG rpnp;
-SLONG nPC;
+static struct sSection *pCurrentSection;
+static int32_t rpnstack[256];
+static int32_t rpnp;
+int32_t nPC;
 
-void
-rpnpush(SLONG i)
+static void rpnpush(int32_t i)
 {
-	rpnstack[rpnp++] = i;
+	rpnstack[rpnp] = i;
+	rpnp++;
 }
 
-SLONG
-rpnpop(void)
+static int32_t rpnpop(void)
 {
-	return (rpnstack[--rpnp]);
+	rpnp--;
+	return rpnstack[rpnp];
 }
 
-SLONG
-getsymvalue(SLONG symid)
+static int32_t getsymvalue(int32_t symid)
 {
-	switch (pCurrentSection->tSymbols[symid]->Type) {
-		case SYM_IMPORT:
-		return (sym_GetValue(pCurrentSection->tSymbols[symid]->pzName));
-		break;
-	case SYM_EXPORT:
-	case SYM_LOCAL:
-		{
-			if (strcmp
-			    (pCurrentSection->tSymbols[symid]->pzName,
-				"@") == 0) {
-				return (nPC);
-			} else
-				return (pCurrentSection->tSymbols[symid]->
-				    nOffset +
-				    pCurrentSection->tSymbols[symid]->
-				    pSection->nOrg);
-		}
-	default:
-		break;
-	}
-	errx(1, "*INTERNAL* UNKNOWN SYMBOL TYPE");
-}
+	const struct sSymbol *tSymbol = pCurrentSection->tSymbols[symid];
 
-SLONG
-getsymbank(SLONG symid)
-{
-	SLONG nBank;
-
-	switch (pCurrentSection->tSymbols[symid]->Type) {
+	switch (tSymbol->Type) {
 	case SYM_IMPORT:
-		nBank = sym_GetBank(pCurrentSection->tSymbols[symid]->pzName);
+		return sym_GetValue(tSymbol->pzName);
+
+	case SYM_EXPORT:
+	case SYM_LOCAL:
+		if (strcmp(tSymbol->pzName, "@") == 0)
+			return nPC;
+
+		return tSymbol->nOffset + tSymbol->pSection->nOrg;
+
+	default:
+		break;
+	}
+
+	errx(1, "%s: Unknown symbol type", __func__);
+}
+
+static int32_t getrealbankfrominternalbank(int32_t n)
+{
+	if (BankIndexIsWRAM0(n) || BankIndexIsROM0(n) ||
+	    BankIndexIsOAM(n)   || BankIndexIsHRAM(n)) {
+		return 0;
+	} else if (BankIndexIsROMX(n)) {
+		return n - BANK_INDEX_ROMX + 1;
+	} else if (BankIndexIsWRAMX(n)) {
+		return n - BANK_INDEX_WRAMX + 1;
+	} else if (BankIndexIsVRAM(n)) {
+		return n - BANK_INDEX_VRAM;
+	} else if (BankIndexIsSRAM(n)) {
+		return n - BANK_INDEX_SRAM;
+	}
+
+	return n;
+}
+
+static int32_t getsymbank(int32_t symid)
+{
+	int32_t nBank;
+	const struct sSymbol *tSymbol = pCurrentSection->tSymbols[symid];
+
+	switch (tSymbol->Type) {
+	case SYM_IMPORT:
+		nBank = sym_GetBank(tSymbol->pzName);
 		break;
 	case SYM_EXPORT:
 	case SYM_LOCAL:
-		nBank = pCurrentSection->tSymbols[symid]->pSection->nBank;
+		nBank = tSymbol->pSection->nBank;
 		break;
 	default:
-		errx(1, "*INTERNAL* UNKNOWN SYMBOL TYPE");
+		errx(1, "%s: Unknown symbol type", __func__);
 	}
 
-	if (nBank == BANK_WRAM0 || nBank == BANK_ROM0 || nBank == BANK_OAM ||
-			nBank == BANK_HRAM) {
-		return 0;
-	} else if (nBank >= BANK_WRAMX && nBank < (BANK_WRAMX + BANK_COUNT_WRAMX)) {
-		return nBank - BANK_WRAMX + 1;
-	} else if (nBank >= BANK_VRAM && nBank < (BANK_VRAM + BANK_COUNT_VRAM)) {
-		return nBank - BANK_VRAM;
-	} else if (nBank >= BANK_SRAM && nBank < (BANK_SRAM + BANK_COUNT_SRAM)) {
-		return nBank - BANK_SRAM;
-	}
-
-	return nBank;
+	return getrealbankfrominternalbank(nBank);
 }
 
-SLONG
-calcrpn(struct sPatch * pPatch)
+int32_t calcrpn(struct sPatch *pPatch)
 {
-	SLONG t, size;
-	UBYTE *rpn;
+	int32_t t, size;
+	uint8_t *rpn;
+	uint8_t rpn_cmd;
+	int32_t nBank;
 
 	rpnp = 0;
 
@@ -96,7 +110,9 @@ calcrpn(struct sPatch * pPatch)
 
 	while (size > 0) {
 		size -= 1;
-		switch (*rpn++) {
+		rpn_cmd = *rpn++;
+
+		switch (rpn_cmd) {
 		case RPN_ADD:
 			rpnpush(rpnpop() + rpnpop());
 			break;
@@ -128,7 +144,7 @@ calcrpn(struct sPatch * pPatch)
 			rpnpush(rpnpop() ^ rpnpop());
 			break;
 		case RPN_UNNOT:
-			rpnpush(rpnpop() ^ 0xFFFFFFFF);
+			rpnpush(~rpnpop());
 			break;
 		case RPN_LOGAND:
 			rpnpush(rpnpop() && rpnpop());
@@ -174,8 +190,8 @@ calcrpn(struct sPatch * pPatch)
 			rpnpush(t & 0xFF);
 			if (t < 0 || (t > 0xFF && t < 0xFF00) || t > 0xFFFF) {
 				errx(1,
-				    "%s(%ld) : Value must be in the HRAM area",
-				    pPatch->pzFilename, pPatch->nLineNo);
+				     "%s(%ld) : Value must be in the HRAM area",
+				     pPatch->pzFilename, pPatch->nLineNo);
 			}
 			break;
 		case RPN_CONST:
@@ -197,7 +213,7 @@ calcrpn(struct sPatch * pPatch)
 			pPatch->oRelocPatch |= (getsymbank(t) != -1);
 			size -= 4;
 			break;
-		case RPN_BANK:
+		case RPN_BANK_SYM:
 			/* symbol */
 			t = (*rpn++);
 			t |= (*rpn++) << 8;
@@ -206,13 +222,40 @@ calcrpn(struct sPatch * pPatch)
 			rpnpush(getsymbank(t));
 			size -= 4;
 			break;
+		case RPN_BANK_SECT:
+		{
+			char *name = (char *)rpn;
+
+			struct sSection *pSection = GetSectionByName(name);
+
+			if (pSection == NULL) {
+				errx(1, "Requested BANK() of section \"%s\", which was not found.\n",
+				     name);
+			}
+
+			nBank = pSection->nBank;
+			rpnpush(getrealbankfrominternalbank(nBank));
+
+			int len = strlen(name);
+
+			size -= len + 1;
+			rpn += len + 1;
+			break;
+		}
+		case RPN_BANK_SELF:
+			nBank = pCurrentSection->nBank;
+			rpnpush(getrealbankfrominternalbank(nBank));
+			break;
+		default:
+			errx(1, "%s: Invalid command %d\n", __func__,
+			     rpn_cmd);
+			break;
 		}
 	}
-	return (rpnpop());
+	return rpnpop();
 }
 
-void
-Patch(void)
+void Patch(void)
 {
 	struct sSection *pSect;
 
@@ -223,7 +266,8 @@ Patch(void)
 		pCurrentSection = pSect;
 		pPatch = pSect->pPatches;
 		while (pPatch) {
-			SLONG t;
+			int32_t t;
+			int32_t nPatchOrg;
 
 			nPC = pSect->nOrg + pPatch->nOffset;
 			t = calcrpn(pPatch);
@@ -232,12 +276,12 @@ Patch(void)
 				if (t >= -128 && t <= 255) {
 					t &= 0xFF;
 					pSect->pData[pPatch->nOffset] =
-					    (UBYTE) t;
+						(uint8_t)t;
 				} else {
 					errx(1,
-					    "%s(%ld) : Value must be 8-bit",
-					    pPatch->pzFilename,
-					    pPatch->nLineNo);
+					     "%s(%ld) : Value must be 8-bit",
+					     pPatch->pzFilename,
+					     pPatch->nLineNo);
 				}
 				break;
 			case PATCH_WORD_L:
@@ -249,20 +293,40 @@ Patch(void)
 						(t >> 8) & 0xFF;
 				} else {
 					errx(1,
-					    "%s(%ld) : Value must be 16-bit",
-					    pPatch->pzFilename,
-					    pPatch->nLineNo);
+					     "%s(%ld) : Value must be 16-bit",
+					     pPatch->pzFilename,
+					     pPatch->nLineNo);
 				}
 				break;
 			case PATCH_LONG_L:
 				pSect->pData[pPatch->nOffset + 0] = t & 0xFF;
 				pSect->pData[pPatch->nOffset + 1] =
-				    (t >> 8) & 0xFF;
+					(t >> 8) & 0xFF;
 				pSect->pData[pPatch->nOffset + 2] =
-				    (t >> 16) & 0xFF;
+					(t >> 16) & 0xFF;
 				pSect->pData[pPatch->nOffset + 3] =
-				    (t >> 24) & 0xFF;
+					(t >> 24) & 0xFF;
 				break;
+			case PATCH_BYTE_JR:
+				/* Calculate absolute address of the patch */
+				nPatchOrg = pSect->nOrg + pPatch->nOffset;
+
+				/* t contains the destination of the jump */
+				t = (int16_t)((t & 0xFFFF) - (nPatchOrg + 1));
+
+				if (t >= -128 && t <= 127) {
+					t &= 0xFF;
+					pSect->pData[pPatch->nOffset] =
+						(uint8_t)t;
+				} else {
+					errx(1,
+					     "%s(%ld) : Value must be 8-bit",
+					     pPatch->pzFilename,
+					     pPatch->nLineNo);
+				}
+				break;
+			default:
+				errx(1, "%s: Internal error.", __func__);
 			}
 
 			pPatch = pPatch->pNext;

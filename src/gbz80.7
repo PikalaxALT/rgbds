@@ -1,18 +1,11 @@
-.\" Copyright (c) 2017 Antonio Nino Diaz <antonio_nd@outlook.com>
 .\"
-.\" Permission to use, copy, modify, and distribute this software for any
-.\" purpose with or without fee is hereby granted, provided that the above
-.\" copyright notice and this permission notice appear in all copies.
+.\" This file is part of RGBDS.
 .\"
-.\" THE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\" Copyright (c) 2017-2018, Antonio Nino Diaz and RGBDS contributors.
 .\"
-.Dd April 17, 2017
+.\" SPDX-License-Identifier: MIT
+.\"
+.Dd February 23, 2018
 .Dt GBZ80 7
 .Os RGBDS Manual
 .Sh NAME
@@ -31,8 +24,10 @@ as destination can omit the destination as it is assumed it's register
 .Sy A .
 The following two lines have the same effect:
 .Pp
-.Dl OR A,B
-.Dl OR B
+.Bd -literal -offset indent
+OR A,B
+OR B
+.Ed
 .Pp
 .Sh LEGEND
 List of abbreviations used in this document.
@@ -201,7 +196,7 @@ and
 .It Sx PUSH AF
 .It Sx PUSH r16
 .El
-.Ss Miscelaneous Instructions
+.Ss Miscellaneous Instructions
 .Bl -inset -compact
 .It Sx CCF
 .It Sx CPL
@@ -1110,7 +1105,21 @@ Cycles: 3
 .Pp
 Bytes: 1
 .Pp
-Flags: None affected.
+Flags:
+.Bl -bullet -compact
+.It
+.Sy Z :
+Set from bit 7 of the popped low byte.
+.It
+.Sy N :
+Set from bit 6 of the popped low byte.
+.It
+.Sy H :
+Set from bit 5 of the popped low byte.
+.It
+.Sy C :
+Set from bit 4 of the popped low byte.
+.El
 .Ss POP r16
 Pop register
 .Ar r16
@@ -1124,7 +1133,15 @@ Flags: None affected.
 .Ss PUSH AF
 Push register
 .Sy AF
-into the stack.
+into the stack. The low byte's bit 7 corresponds to the
+.Sy Z
+flag, its bit 6 to the
+.Sy N
+flag, bit 5 to the
+.Sy H
+flag, and bit 4 to the
+.Sy C
+flag. Bits 3 to 0 are reset.
 .Pp
 Cycles: 4
 .Pp
@@ -1669,7 +1686,7 @@ Flags: See
 .Sx SRA r8
 .Ss STOP
 Enter CPU very low power mode.
-Also used to switch between doube speed and normal CPU modes in GBC.
+Also used to switch between double and normal speed CPU modes in GBC.
 .Pp
 Cycles: -
 .Pp

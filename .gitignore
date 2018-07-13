@@ -4,4 +4,8 @@ rgbfix
 rgbgfx
 *.o
 *.exe
-*.html
+.checkpatch-camelcase.*
+
+test/pokecrystal/*
+test/pokered/*
+test/ucity/*

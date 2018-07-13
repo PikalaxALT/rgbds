@@ -1,9 +1,19 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "extern/err.h"
+
 #include "link/object.h"
 #include "link/output.h"
 #include "link/assign.h"
@@ -13,6 +23,8 @@
 #include "link/main.h"
 #include "link/library.h"
 
+#include "version.h"
+
 enum eBlockType {
 	BLOCK_COMMENT,
 	BLOCK_OBJECTS,
@@ -20,40 +32,36 @@ enum eBlockType {
 	BLOCK_OUTPUT
 };
 
-SLONG options = 0;
-SLONG fillchar = 0;
-UBYTE linker_error = 0;
+int32_t options = 0;
+int32_t fillchar = 0;
+uint8_t linker_error = 0;
 char *smartlinkstartsymbol;
 
 /*
  * Print the usagescreen
- *
  */
 
-static void
-usage(void)
+static void print_usage(void)
 {
 	printf(
-"usage: rgblink [-twd] [-l linkerscript] [-m mapfile] [-n symfile] [-O overlay]\n"
+"usage: rgblink [-dtVw] [-l linkerscript] [-m mapfile] [-n symfile] [-O overlay]\n"
 "               [-o outfile] [-p pad_value] [-s symbol] file [...]\n");
 	exit(1);
 }
 
 /*
  * The main routine
- *
  */
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	int ch;
 	char *ep;
 
 	if (argc == 1)
-		usage();
+		print_usage();
 
-	while ((ch = getopt(argc, argv, "l:m:n:o:O:p:s:twd")) != -1) {
+	while ((ch = getopt(argc, argv, "dl:m:n:O:o:p:s:tVw")) != -1) {
 		switch (ch) {
 		case 'l':
 			SetLinkerscriptName(optarg);
@@ -73,13 +81,10 @@ main(int argc, char *argv[])
 			break;
 		case 'p':
 			fillchar = strtoul(optarg, &ep, 0);
-			if (optarg[0] == '\0' || *ep != '\0') {
+			if (optarg[0] == '\0' || *ep != '\0')
 				errx(1, "Invalid argument for option 'p'");
-			}
-			if (fillchar < 0 || fillchar > 0xFF) {
-				fprintf(stderr, "Argument for option 'p' must be between 0 and 0xFF");
-				exit(1);
-			}
+			if (fillchar < 0 || fillchar > 0xFF)
+				errx(1, "Argument for option 'p' must be between 0 and 0xFF");
 			break;
 		case 's':
 			options |= OPT_SMART_C_LINK;
@@ -99,16 +104,21 @@ main(int argc, char *argv[])
 			 * This option implies OPT_CONTWRAM.
 			 */
 			options |= OPT_DMG_MODE;
-			/* fallthrough */
+			/* FALLTHROUGH */
 		case 'w':
-			/* Set to set WRAM as a single continuous block as on
+			/*
+			 * Set to set WRAM as a single continuous block as on
 			 * DMG. All WRAM sections must be WRAM0 as bankable WRAM
 			 * sections do not exist in this mode. A WRAMX section
-			 * will raise an error. */
+			 * will raise an error.
+			 */
 			options |= OPT_CONTWRAM;
 			break;
+		case 'V':
+			printf("rgblink %s\n", get_package_version_string());
+			exit(0);
 		default:
-			usage();
+			print_usage();
 			/* NOTREACHED */
 		}
 	}
@@ -116,9 +126,9 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	if (argc == 0)
-		usage();
+		print_usage();
 
-	for (int i = 0; i < argc; ++i)
+	for (int32_t i = 0; i < argc; ++i)
 		obj_Readfile(argv[i]);
 
 	AddNeededModules();

@@ -1,17 +1,9 @@
 /*
- * Copyright © 2013 stag019 <stag019@gmail.com>
+ * This file is part of RGBDS.
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
+ * Copyright (c) 2013-2018, stag019 and RGBDS contributors.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * SPDX-License-Identifier: MIT
  */
 
 #ifndef RGBDS_GFX_GB_H
@@ -20,11 +12,15 @@
 #include <stdint.h>
 #include "gfx/main.h"
 
-void png_to_gb(struct PNGImage png, struct GBImage *gb);
-void output_file(struct Options opts, struct GBImage gb);
-int get_tile_index(uint8_t *tile, uint8_t **tiles, int num_tiles, int tile_size);
-void create_tilemap(struct Options opts, struct GBImage *gb, struct Tilemap *tilemap);
-void output_tilemap_file(struct Options opts, struct Tilemap tilemap);
-void output_palette_file(struct Options opts, struct PNGImage png);
+void raw_to_gb(const struct RawIndexedImage *raw_image, struct GBImage *gb);
+void output_file(const struct Options *opts, const struct GBImage *gb);
+int get_tile_index(uint8_t *tile, uint8_t **tiles, int num_tiles,
+		   int tile_size);
+void create_tilemap(const struct Options *opts, struct GBImage *gb,
+		    struct Tilemap *tilemap);
+void output_tilemap_file(const struct Options *opts,
+			 const struct Tilemap *tilemap);
+void output_palette_file(const struct Options *opts,
+			 const struct RawIndexedImage *raw_image);
 
 #endif

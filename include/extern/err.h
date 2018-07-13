@@ -1,12 +1,23 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef EXTERN_ERR_H
 #define EXTERN_ERR_H
 
 #ifdef ERR_IN_LIBC
+
 #include <err.h>
-#else
+
+#else /* ERR_IN_LIBC */
 
 #include <stdarg.h>
-#include "extern/stdnoreturn.h"
+
+#include "helpers.h"
 
 #define warn rgbds_warn
 #define vwarn rgbds_vwarn
@@ -18,16 +29,16 @@
 #define errx rgbds_errx
 #define verrx rgbds_verrx
 
-void warn(const char *, ...);
-void vwarn(const char *, va_list);
-void warnx(const char *, ...);
-void vwarnx(const char *, va_list);
+void warn(const char *fmt, ...);
+void vwarn(const char *fmt, va_list ap);
+void warnx(const char *fmt, ...);
+void vwarnx(const char *fmt, va_list ap);
 
-noreturn void err(int, const char *, ...);
-noreturn void verr(int, const char *, va_list);
-noreturn void errx(int, const char *, ...);
-noreturn void verrx(int, const char *, va_list);
+noreturn_ void err(int status, const char *fmt, ...);
+noreturn_ void verr(int status, const char *fmt, va_list ap);
+noreturn_ void errx(int status, const char *fmt, ...);
+noreturn_ void verrx(int status, const char *fmt, va_list ap);
 
-#endif
+#endif /* ERR_IN_LIBC */
 
-#endif
+#endif /* EXTERN_ERR_H */

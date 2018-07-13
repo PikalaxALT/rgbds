@@ -1,52 +1,58 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "asm/asm.h"
-#include "asm/symbol.h"
+#include "asm/lexer.h"
+#include "asm/main.h"
 #include "asm/rpn.h"
 #include "asm/symbol.h"
-#include "asm/main.h"
-#include "asm/lexer.h"
+#include "asm/symbol.h"
+
+#include "helpers.h"
 
 #include "asmy.h"
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
+bool oDontExpandStrings;
+int32_t nGBGfxID = -1;
+int32_t nBinaryID = -1;
 
-bool oDontExpandStrings = false;
-SLONG nGBGfxID = -1;
-SLONG nBinaryID = -1;
-
-SLONG
-gbgfx2bin(char ch)
+static int32_t gbgfx2bin(char ch)
 {
-	SLONG i;
+	int32_t i;
 
 	for (i = 0; i <= 3; i += 1) {
-		if (CurrentOptions.gbgfx[i] == ch) {
-			return (i);
-		}
+		if (CurrentOptions.gbgfx[i] == ch)
+			return i;
 	}
 
-	return (0);
+	return 0;
 }
 
-SLONG
-binary2bin(char ch)
+static int32_t binary2bin(char ch)
 {
-	SLONG i;
+	int32_t i;
 
 	for (i = 0; i <= 1; i += 1) {
-		if (CurrentOptions.binary[i] == ch) {
-			return (i);
-		}
+		if (CurrentOptions.binary[i] == ch)
+			return i;
 	}
 
-	return (0);
+	return 0;
 }
 
-SLONG
-char2bin(char ch)
+static int32_t char2bin(char ch)
 {
 	if (ch >= 'a' && ch <= 'f')
 		return (ch - 'a' + 10);
@@ -57,16 +63,15 @@ char2bin(char ch)
 	if (ch >= '0' && ch <= '9')
 		return (ch - '0');
 
-	return (0);
+	return 0;
 }
 
-typedef SLONG(*x2bin) (char ch);
+typedef int32_t(*x2bin) (char ch);
 
-SLONG
-ascii2bin(char *s)
+static int32_t ascii2bin(char *s)
 {
-	SLONG radix = 10;
-	SLONG result = 0;
+	int32_t radix = 10;
+	int32_t result = 0;
 	x2bin convertfunc = char2bin;
 
 	switch (*s) {
@@ -90,10 +95,13 @@ ascii2bin(char *s)
 		s += 1;
 		convertfunc = binary2bin;
 		break;
+	default:
+		/* Handle below */
+		break;
 	}
 
 	if (radix == 4) {
-		SLONG c;
+		int32_t c;
 
 		while (*s != '\0') {
 			c = convertfunc(*s++);
@@ -104,37 +112,31 @@ ascii2bin(char *s)
 			result = result * radix + convertfunc(*s++);
 	}
 
-	return (result);
+	return result;
 }
 
-ULONG
-ParseFixedPoint(char *s, ULONG size)
+uint32_t ParseFixedPoint(char *s, uint32_t size)
 {
-	//char dest[256];
-	ULONG i = 0, dot = 0;
+	uint32_t i = 0, dot = 0;
 
 	while (size && dot != 2) {
 		if (s[i] == '.')
 			dot += 1;
 
 		if (dot < 2) {
-			//dest[i] = s[i];
 			size -= 1;
 			i += 1;
 		}
 	}
 
-	//dest[i] = 0;
-
 	yyunputbytes(size);
 
-	yylval.nConstValue = (SLONG) (atof(s) * 65536);
+	yylval.nConstValue = (int32_t)(atof(s) * 65536);
 
-	return (1);
+	return 1;
 }
 
-ULONG
-ParseNumber(char *s, ULONG size)
+uint32_t ParseNumber(char *s, uint32_t size)
 {
 	char dest[256];
 
@@ -142,14 +144,13 @@ ParseNumber(char *s, ULONG size)
 	dest[size] = 0;
 	yylval.nConstValue = ascii2bin(dest);
 
-	return (1);
+	return 1;
 }
 
-ULONG
-ParseSymbol(char *src, ULONG size)
+uint32_t ParseSymbol(char *src, uint32_t size)
 {
 	char dest[MAXSYMLEN + 1];
-	int copied = 0, size_backup = size;
+	int32_t copied = 0, size_backup = size;
 
 	while (size && copied < MAXSYMLEN) {
 		if (*src == '\\') {
@@ -158,13 +159,13 @@ ParseSymbol(char *src, ULONG size)
 			src += 1;
 			size -= 1;
 
-			if (*src == '@')
+			if (*src == '@') {
 				marg = sym_FindMacroArg(-1);
-			else if (*src >= '0' && *src <= '9')
+			} else if (*src >= '0' && *src <= '9') {
 				marg = sym_FindMacroArg(*src - '0');
-			else {
+			} else {
 				fatalerror("Malformed ID");
-				return (0);
+				return 0;
 			}
 
 			src += 1;
@@ -192,47 +193,48 @@ ParseSymbol(char *src, ULONG size)
 		yyunputstr(s = sym_GetStringValue(dest));
 
 		while (*s) {
-			if (*s++ == '\n') {
+			if (*s++ == '\n')
 				nLineNo -= 1;
-			}
 		}
-		return (0);
-	} else {
-		strcpy(yylval.tzString, dest);
-		return (1);
+		return 0;
 	}
+
+	strcpy(yylval.tzString, dest);
+	return 1;
 }
 
-ULONG
-PutMacroArg(char *src, ULONG size)
+uint32_t PutMacroArg(char *src, uint32_t size)
 {
 	char *s;
 
 	yyskipbytes(size);
 	if ((size == 2 && src[1] >= '1' && src[1] <= '9')) {
-		if ((s = sym_FindMacroArg(src[1] - '0')) != NULL) {
+		s = sym_FindMacroArg(src[1] - '0');
+
+		if (s != NULL)
 			yyunputstr(s);
-		} else {
+		else
 			yyerror("Macro argument not defined");
-		}
 	} else {
 		yyerror("Invalid macro argument");
 	}
-	return (0);
+	return 0;
 }
 
-ULONG
-PutUniqueArg(char *src, ULONG size)
+uint32_t PutUniqueArg(unused_ char *src, uint32_t size)
 {
 	char *s;
 
 	yyskipbytes(size);
-	if ((s = sym_FindMacroArg(-1)) != NULL) {
+
+	s = sym_FindMacroArg(-1);
+
+	if (s != NULL)
 		yyunputstr(s);
-	} else {
+	else
 		yyerror("Macro unique label string not defined");
-	}
-	return (0);
+
+	return 0;
 }
 
 enum {
@@ -240,9 +242,86 @@ enum {
 	T_LEX_MACROUNIQUE
 };
 
-extern struct sLexInitString localstrings[];
+const struct sLexInitString lexer_strings[] = {
+	{"adc", T_Z80_ADC},
+	{"add", T_Z80_ADD},
+	{"and", T_Z80_AND},
+	{"bit", T_Z80_BIT},
+	{"call", T_Z80_CALL},
+	{"ccf", T_Z80_CCF},
+	{"cpl", T_Z80_CPL},
+	{"cp", T_Z80_CP},
+	{"daa", T_Z80_DAA},
+	{"dec", T_Z80_DEC},
+	{"di", T_Z80_DI},
+	{"ei", T_Z80_EI},
+	{"halt", T_Z80_HALT},
+	{"inc", T_Z80_INC},
+	{"jp", T_Z80_JP},
+	{"jr", T_Z80_JR},
+	{"ld", T_Z80_LD},
+	{"ldi", T_Z80_LDI},
+	{"ldd", T_Z80_LDD},
+	{"ldio", T_Z80_LDIO},
+	{"ldh", T_Z80_LDIO},
+	{"nop", T_Z80_NOP},
+	{"or", T_Z80_OR},
+	{"pop", T_Z80_POP},
+	{"push", T_Z80_PUSH},
+	{"res", T_Z80_RES},
+	{"reti", T_Z80_RETI},
+	{"ret", T_Z80_RET},
+	{"rlca", T_Z80_RLCA},
+	{"rlc", T_Z80_RLC},
+	{"rla", T_Z80_RLA},
+	{"rl", T_Z80_RL},
+	{"rrc", T_Z80_RRC},
+	{"rrca", T_Z80_RRCA},
+	{"rra", T_Z80_RRA},
+	{"rr", T_Z80_RR},
+	{"rst", T_Z80_RST},
+	{"sbc", T_Z80_SBC},
+	{"scf", T_Z80_SCF},
+	{"set", T_POP_SET},
+	{"sla", T_Z80_SLA},
+	{"sra", T_Z80_SRA},
+	{"srl", T_Z80_SRL},
+	{"stop", T_Z80_STOP},
+	{"sub", T_Z80_SUB},
+	{"swap", T_Z80_SWAP},
+	{"xor", T_Z80_XOR},
 
-struct sLexInitString staticstrings[] = {
+	{"nz", T_CC_NZ},
+	{"z", T_CC_Z},
+	{"nc", T_CC_NC},
+	/* Handled in list of registers */
+	/* { "c", T_TOKEN_C }, */
+
+	{"[bc]", T_MODE_BC_IND},
+	{"[de]", T_MODE_DE_IND},
+	{"[hl]", T_MODE_HL_IND},
+	{"[hl+]", T_MODE_HL_INDINC},
+	{"[hl-]", T_MODE_HL_INDDEC},
+	{"[hli]", T_MODE_HL_INDINC},
+	{"[hld]", T_MODE_HL_INDDEC},
+	{"[sp]", T_MODE_SP_IND},
+	{"af", T_MODE_AF},
+	{"bc", T_MODE_BC},
+	{"de", T_MODE_DE},
+	{"hl", T_MODE_HL},
+	{"sp", T_MODE_SP},
+	{"[c]", T_MODE_C_IND},
+	{"[$ff00+c]", T_MODE_C_IND},
+	{"[$ff00 + c]", T_MODE_C_IND},
+
+	{"a", T_TOKEN_A},
+	{"b", T_TOKEN_B},
+	{"c", T_TOKEN_C},
+	{"d", T_TOKEN_D},
+	{"e", T_TOKEN_E},
+	{"h", T_TOKEN_H},
+	{"l", T_TOKEN_L},
+
 	{"||", T_OP_LOGICOR},
 	{"&&", T_OP_LOGICAND},
 	{"==", T_OP_LOGICEQU},
@@ -295,6 +374,7 @@ struct sLexInitString staticstrings[] = {
 
 	{"include", T_POP_INCLUDE},
 	{"printt", T_POP_PRINTT},
+	{"printi", T_POP_PRINTI},
 	{"printv", T_POP_PRINTV},
 	{"printf", T_POP_PRINTF},
 	{"export", T_POP_EXPORT},
@@ -303,8 +383,9 @@ struct sLexInitString staticstrings[] = {
 	{"xref", T_POP_IMPORT},
 	{"global", T_POP_GLOBAL},
 	{"ds", T_POP_DS},
-	{NAME_DB, T_POP_DB},
-	{NAME_DW, T_POP_DW},
+	{"db", T_POP_DB},
+	{"dw", T_POP_DW},
+	{"dl", T_POP_DL},
 	{"section", T_POP_SECTION},
 	{"purge", T_POP_PURGE},
 
@@ -318,7 +399,6 @@ struct sLexInitString staticstrings[] = {
 	{"warn", T_POP_WARN},
 
 	{"macro", T_POP_MACRO},
-
 	/* Not needed but we have it here just to protect the name */
 	{"endm", T_POP_ENDM},
 	{"shift", T_POP_SHIFT},
@@ -329,7 +409,12 @@ struct sLexInitString staticstrings[] = {
 
 	{"if", T_POP_IF},
 	{"else", T_POP_ELSE},
+	{"elif", T_POP_ELIF},
 	{"endc", T_POP_ENDC},
+
+	{"union", T_POP_UNION},
+	{"nextu", T_POP_NEXTU},
+	{"endu", T_POP_ENDU},
 
 	{"wram0", T_SECT_WRAM0},
 	{"vram", T_SECT_VRAM},
@@ -346,12 +431,13 @@ struct sLexInitString staticstrings[] = {
 	{"data", T_SECT_DATA},
 	{"bss", T_SECT_BSS},
 
-	{NAME_RB, T_POP_RB},
-	{NAME_RW, T_POP_RW},
+	{"rb", T_POP_RB},
+	{"rw", T_POP_RW},
 	{"equ", T_POP_EQU},
 	{"equs", T_POP_EQUS},
 
-	{"set", T_POP_SET},
+	/*  Handled before in list of CPU instructions */
+	/* {"set", T_POP_SET}, */
 	{"=", T_POP_SET},
 
 	{"pushs", T_POP_PUSHS},
@@ -364,43 +450,41 @@ struct sLexInitString staticstrings[] = {
 	{NULL, 0}
 };
 
-struct sLexFloat tNumberToken = {
+const struct sLexFloat tNumberToken = {
 	ParseNumber,
 	T_NUMBER
 };
 
-struct sLexFloat tFixedPointToken = {
+const struct sLexFloat tFixedPointToken = {
 	ParseFixedPoint,
 	T_NUMBER
 };
 
-struct sLexFloat tIDToken = {
+const struct sLexFloat tIDToken = {
 	ParseSymbol,
 	T_ID
 };
 
-struct sLexFloat tMacroArgToken = {
+const struct sLexFloat tMacroArgToken = {
 	PutMacroArg,
 	T_LEX_MACROARG
 };
 
-struct sLexFloat tMacroUniqueToken = {
+const struct sLexFloat tMacroUniqueToken = {
 	PutUniqueArg,
 	T_LEX_MACROUNIQUE
 };
 
-void
-setuplex(void)
+void setup_lexer(void)
 {
-	ULONG id;
+	uint32_t id;
 
 	lex_Init();
-	lex_AddStrings(staticstrings);
-	lex_AddStrings(localstrings);
+	lex_AddStrings(lexer_strings);
 
 	//Macro arguments
 
-	    id = lex_FloatAlloc(&tMacroArgToken);
+	id = lex_FloatAlloc(&tMacroArgToken);
 	lex_FloatAddFirstRange(id, '\\', '\\');
 	lex_FloatAddSecondRange(id, '1', '9');
 	id = lex_FloatAlloc(&tMacroUniqueToken);
@@ -409,43 +493,45 @@ setuplex(void)
 
 	//Decimal constants
 
-	    id = lex_FloatAlloc(&tNumberToken);
+	id = lex_FloatAlloc(&tNumberToken);
 	lex_FloatAddFirstRange(id, '0', '9');
 	lex_FloatAddSecondRange(id, '0', '9');
 	lex_FloatAddRange(id, '0', '9');
 
 	//Binary constants
 
-	    nBinaryID = id = lex_FloatAlloc(&tNumberToken);
+	id = lex_FloatAlloc(&tNumberToken);
+	nBinaryID = id;
 	lex_FloatAddFirstRange(id, '%', '%');
 	lex_FloatAddSecondRange(id, CurrentOptions.binary[0],
-	    CurrentOptions.binary[0]);
+				CurrentOptions.binary[0]);
 	lex_FloatAddSecondRange(id, CurrentOptions.binary[1],
-	    CurrentOptions.binary[1]);
+				CurrentOptions.binary[1]);
 	lex_FloatAddRange(id, CurrentOptions.binary[0],
-	    CurrentOptions.binary[0]);
+			  CurrentOptions.binary[0]);
 	lex_FloatAddRange(id, CurrentOptions.binary[1],
-	    CurrentOptions.binary[1]);
+			  CurrentOptions.binary[1]);
 
 	//Octal constants
 
-	    id = lex_FloatAlloc(&tNumberToken);
+	id = lex_FloatAlloc(&tNumberToken);
 	lex_FloatAddFirstRange(id, '&', '&');
 	lex_FloatAddSecondRange(id, '0', '7');
 	lex_FloatAddRange(id, '0', '7');
 
 	//Gameboy gfx constants
 
-	    nGBGfxID = id = lex_FloatAlloc(&tNumberToken);
+	id = lex_FloatAlloc(&tNumberToken);
+	nGBGfxID = id;
 	lex_FloatAddFirstRange(id, '`', '`');
 	lex_FloatAddSecondRange(id, CurrentOptions.gbgfx[0],
-	    CurrentOptions.gbgfx[0]);
+				CurrentOptions.gbgfx[0]);
 	lex_FloatAddSecondRange(id, CurrentOptions.gbgfx[1],
-	    CurrentOptions.gbgfx[1]);
+				CurrentOptions.gbgfx[1]);
 	lex_FloatAddSecondRange(id, CurrentOptions.gbgfx[2],
-	    CurrentOptions.gbgfx[2]);
+				CurrentOptions.gbgfx[2]);
 	lex_FloatAddSecondRange(id, CurrentOptions.gbgfx[3],
-	    CurrentOptions.gbgfx[3]);
+				CurrentOptions.gbgfx[3]);
 	lex_FloatAddRange(id, CurrentOptions.gbgfx[0], CurrentOptions.gbgfx[0]);
 	lex_FloatAddRange(id, CurrentOptions.gbgfx[1], CurrentOptions.gbgfx[1]);
 	lex_FloatAddRange(id, CurrentOptions.gbgfx[2], CurrentOptions.gbgfx[2]);
@@ -453,7 +539,7 @@ setuplex(void)
 
 	//Hex constants
 
-	    id = lex_FloatAlloc(&tNumberToken);
+	id = lex_FloatAlloc(&tNumberToken);
 	lex_FloatAddFirstRange(id, '$', '$');
 	lex_FloatAddSecondRange(id, '0', '9');
 	lex_FloatAddSecondRange(id, 'A', 'F');
@@ -464,7 +550,7 @@ setuplex(void)
 
 	//ID 's
 
-	    id = lex_FloatAlloc(&tIDToken);
+	id = lex_FloatAlloc(&tIDToken);
 	lex_FloatAddFirstRange(id, 'a', 'z');
 	lex_FloatAddFirstRange(id, 'A', 'Z');
 	lex_FloatAddFirstRange(id, '_', '_');
@@ -486,7 +572,7 @@ setuplex(void)
 
 	//Local ID
 
-	    id = lex_FloatAlloc(&tIDToken);
+	id = lex_FloatAlloc(&tIDToken);
 	lex_FloatAddFirstRange(id, '.', '.');
 	lex_FloatAddSecondRange(id, 'a', 'z');
 	lex_FloatAddSecondRange(id, 'A', 'Z');
@@ -499,19 +585,18 @@ setuplex(void)
 	lex_FloatAddRange(id, '@', '@');
 	lex_FloatAddRange(id, '#', '#');
 
-	//@ID
+	// "@"
 
-	    id = lex_FloatAlloc(&tIDToken);
+	id = lex_FloatAlloc(&tIDToken);
 	lex_FloatAddFirstRange(id, '@', '@');
 
 	//Fixed point constants
 
-	    id = lex_FloatAlloc(&tFixedPointToken);
+	id = lex_FloatAlloc(&tFixedPointToken);
 	lex_FloatAddFirstRange(id, '.', '.');
 	lex_FloatAddFirstRange(id, '0', '9');
 	lex_FloatAddSecondRange(id, '.', '.');
 	lex_FloatAddSecondRange(id, '0', '9');
 	lex_FloatAddRange(id, '.', '.');
 	lex_FloatAddRange(id, '0', '9');
-
 }

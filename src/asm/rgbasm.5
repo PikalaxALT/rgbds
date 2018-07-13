@@ -1,18 +1,11 @@
-.\" Copyright (c) 2017 Antonio Nino Diaz <antonio_nd@outlook.com>
 .\"
-.\" Permission to use, copy, modify, and distribute this software for any
-.\" purpose with or without fee is hereby granted, provided that the above
-.\" copyright notice and this permission notice appear in all copies.
+.\" This file is part of RGBDS.
 .\"
-.\" THE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\" Copyright (c) 2017-2018, Antonio Nino Diaz and RGBDS contributors.
 .\"
-.Dd April 17, 2017
+.\" SPDX-License-Identifier: MIT
+.\"
+.Dd March 13, 2018
 .Dt RGBASM 5
 .Os RGBDS Manual
 .Sh NAME
@@ -33,16 +26,46 @@ one instruction or pseudo‐op per line:
 .Pp
 Example:
 .Pp
-.Dl John: ld a,87 ;Weee
+.Bd -literal -offset indent
+John: ld a,87 ;Weee
+.Ed
 .Pp
 All pseudo‐ops, mnemonics and registers (reserved keywords) are case‐insensitive
 and all labels are case‐sensitive.
+.Pp
+There are two syntaxes for comments. In both cases, a comment ends at the end of
+the line. The most common one is: anything that follows a semicolon
+\[dq]\&;\[dq] (that isn't inside a string) is a comment. There is another
+format: anything that follows a \[dq]*\[dq] that is placed right at the start of
+a line is a comment. The assembler removes all comments from the code before
+doing anything else.
+.Pp
+Sometimes lines can be too long and it may be necessary to split them. The
+syntax to do so is the following one:
+.Pp
+.Bd -literal -offset indent
+    DB 1, 2, 3, 4 \[rs]
+       5, 6, 7, 8
+.Ed
+.Pp
+This works anywhere in the code except inside of strings. To split strings it is
+needed to use
+.Sy STRCAT
+like this:
+.Pp
+.Bd -literal -offset indent
+    DB STRCAT("Hello ", \[rs]
+              "world!")
+.Ed
+.Pp
 .Ss Sections
 Before you can start writing code, you must define a section.
 This tells the assembler what kind of information follows and, if it is code,
 where to put it.
 .Pp
-.Dl SECTION \[dq]CoolStuff\[dq],ROMX
+.Bd -literal -offset indent
+    SECTION \[dq]CoolStuff\[dq],ROMX
+.Ed
 .Pp
 This switches to the section called "CoolStuff" (or creates it if it doesn't
 already exist) and it defines it as a code section.
@@ -111,7 +134,13 @@ and
 .Sy LDH A,[$FF00+n8]
 syntax instead.
 This forces the assembler to emit the correct instruction and the linker to
-check if the value is in the correct range.
+check if the value is in the correct range. This optimization can be disabled
+by passing the
+.Fl L
+flag to
+.Sy rgbasm
+as explained in
+.Xr rgbasm 1 .
 .El
 .Pp
 A section is usually defined as a floating one, but the code can restrict where
@@ -123,22 +152,30 @@ obligation to follow any specific rules.
 The following example defines a section that can be placed anywhere in any ROMX
 bank:
 .Pp
-.Dl SECTION \[dq]CoolStuff\[dq],ROMX
+.Bd -literal -offset indent
+    SECTION \[dq]CoolStuff\[dq],ROMX
+.Ed
 .Pp
 If it is needed, the following syntax can be used to fix the base address of the
 section:
 .Pp
-.Dl SECTION \[dq]CoolStuff\[dq],ROMX[$4567]
+.Bd -literal -offset indent
+    SECTION \[dq]CoolStuff\[dq],ROMX[$4567]
+.Ed
 .Pp
 It won't, however, fix the bank number, which is left to the linker.
 If you also want to specify the bank you can do:
 .Pp
-.Dl SECTION \[dq]CoolStuff\[dq],ROMX[$4567],BANK[3]
+.Bd -literal -offset indent
+    SECTION \[dq]CoolStuff\[dq],ROMX[$4567],BANK[3]
+.Ed
 .Pp
 And if you only want to force the section into a certain bank, and not it's
 position within the bank, that's also possible:
 .Pp
-.Dl SECTION \[dq]CoolStuff\[dq],ROMX,BANK[7]
+.Bd -literal -offset indent
+    SECTION \[dq]CoolStuff\[dq],ROMX,BANK[7]
+.Ed
 .Pp
 In addition, you can specify byte alignment for a section.
 This ensures that the section starts at a memory address where the given number
@@ -150,9 +187,11 @@ However, if an alignment is specified, the base address must be left unassigned.
 This can be useful when using DMA to copy data or when it is needed to align the
 start of an array to 256 bytes to optimize the code that accesses it.
 .Pp
-.Dl SECTION \[dq]OAM Data\[dq],WRAM0,ALIGN[8] ; align to 256 bytes
-.Pp
-.Dl SECTION \[dq]VRAM Data\[dq],ROMX,BANK[2],ALIGN[4] ; align to 16 bytes
+.Bd -literal -offset indent
+    SECTION \[dq]OAM Data\[dq],WRAM0,ALIGN[8] ; align to 256 bytes
+
+    SECTION \[dq]VRAM Data\[dq],ROMX,BANK[2],ALIGN[4] ; align to 16 bytes
+.Ed
 .Pp
 HINT: If you think this is a lot of typing for doing a simple
 .Ic ORG
@@ -250,8 +289,10 @@ EQUates are constant symbols.
 They can, for example, be used for things such as bit-definitions of hardware
 registers.
 .Pp
-.Dl EXIT_OK      EQU $00
-.Dl EXIT_FAILURE EQU $01
+.Bd -literal -offset indent
+EXIT_OK      EQU $00
+EXIT_FAILURE EQU $01
+.Ed
 .Pp
 Note that a colon (:) following the label-name is not allowed.
 EQUates cannot be exported and imported.
@@ -273,9 +314,11 @@ Note that a colon (:) following the label-name is not allowed.
 SETs cannot be exported and imported.
 Alternatively you can use = as a synonym for SET.
 .Pp
-.Dl COUNT = 2
+.Bd -literal -offset indent
+COUNT = 2
+.Ed
 .Pp
-.It Sy RSSET , RERESET , RB , RW
+.It Sy RSSET , RSRESET , RB , RW
 .Pp
 The RS group of commands is a handy way of defining structures:
 .Pp
@@ -300,7 +343,7 @@ There are four commands in the RS group of commands:
 .Pp
 .Bl -column ".Sy String" ".Sy String"
 .It Sy Command Ta Ta Ta Sy Meaning
-.It Ic RSRESET No Ta Ta Resets the _RS counter to zero.
+.It Ic RSRESET Ta Ta Resets the _RS counter to zero.
 .It Ic RSSET Ar constexpr Ta Sets the
 .Ic _RS No counter to Ar constexpr .
 .It Ic RB Ar constexpr Ta Sets the preceding symbol to
@@ -325,10 +368,10 @@ If you are familiar with C you can think of it as the same as #define.
 .Pp
 .Bd -literal -offset indent
 COUNTREG EQUS "[hl+]"
-ld a,COUNTREG
+    ld a,COUNTREG
 
 PLAYER_NAME EQUS \[dq]\[rs]\[dq]John\[rs]\[dq]\[dq]
-db PLAYER_NAME
+    db PLAYER_NAME
 .Ed
 .Pp
 Note that : following the label-name is not allowed, and that strings must be
@@ -336,12 +379,16 @@ quoted to be useful.
 .Pp
 This will be interpreted as:
 .Pp
-.Dl ld a,[hl+]
-.Dl db \[dq]John\[dq]
+.Bd -literal -offset indent
+    ld a,[hl+]
+    db \[dq]John\[dq]
+.Ed
 .Pp
 String-symbols can also be used to define small one-line macros:
 .Pp
-.Dl PUSHA EQUS \[dq]push af\[rs]npush bc\[rs]npush de\[rs]npush hl\[rs]n\[dq]
+.Bd -literal -offset indent
+PUSHA EQUS \[dq]push af\[rs]npush bc\[rs]npush de\[rs]npush hl\[rs]n\[dq]
+.Ed
 .Pp
 Note that a colon (:) following the label-name is not allowed.
 String equates can't be exported or imported.
@@ -454,7 +501,9 @@ Now I can call the macro specifying two arguments.
 The first being the address and the second being a bytecount.
 The macro will then reset all bytes in this range.
 .Pp
-.Dl LoopyMacro MyVars,54
+.Bd -literal -offset indent
+LoopyMacro MyVars,54
+.Ed
 .Pp
 Arguments are passed as string equates.
 There's no need to enclose them in quotes.
@@ -473,6 +522,19 @@ you will get the value 5 on screen and not 6 as you might have expected.
 In reality, up to 256 arguments can be passed to a macro, but you can only use
 the first 9 like this. If you want to use the rest, you need to use the keyword
 .Ic SHIFT .
+.Pp
+Line continuations work as usual inside macros or lists of arguments of macros.
+Strings, however, are a bit trickier. The following example shows how to use
+strings as arguments for a macro:
+.Pp
+.Bd -literal -offset indent
+PrintMacro : MACRO
+    PRINTT \[rs]1
+ENDM
+
+    PrintMacro STRCAT(\[rs]\[dq]Hello\[rs]\[dq]\[rs],  \[rs]
+                      \[rs]\[dq] world\[rs]\[rs]n\[rs]\[dq])
+.Ed
 .Pp
 .Ic SHIFT
 is a special command only available in macros.
@@ -549,36 +611,48 @@ The following symbols are defined by the assembler:
 .It Ic EQU Ta Ic __UTC_HOUR__ Ta Ta Current hour, 0-23
 .It Ic EQU Ta Ic __UTC_MINUTE__ Ta Ta Current minute, 0-59
 .It Ic EQU Ta Ic __UTC_SECOND__ Ta Ta Current second, 0-59
+.It Ic EQU Ta Ic __RGBDS_MAJOR__ Ta Ta Major version number of RGBDS.
+.It Ic EQU Ta Ic __RGBDS_MINOR__ Ta Ta Minor version number of RGBDS.
+.It Ic EQU Ta Ic __RGBDS_PATCH__ Ta Ta Patch version number of RGBDS.
 .El
 .Pp
 .Sh DEFINING DATA
 .Ss Defining constant data
 .Ic DB
 defines a list of bytes that will be stored in the final image.
-Ideal for tables and text.
+Ideal for tables and text (which is not zero-terminated).
 .Pp
-.Dl DB 1,2,3,4,\[dq]This is a string\[dq]
+.Bd -literal -offset indent
+DB 1,2,3,4,\[dq]This is a string\[dq]
+.Ed
 .Pp
 Alternatively, you can use
 .Ic DW
-to store a list of words.
+to store a list of words (16-bits) or
+.Ic DL
+to store a list of doublewords/longs (32-bits).
 Strings are not allowed as arguments to
-.Ic DW .
+.Ic DW
+and
+.Ic DL .
 .Pp
 You can also use
-.Ic DB
-and
+.Ic DB ,
 .Ic DW
-without arguments.
-This works exactly like
-.Sy DS 1
 and
+.Ic DL
+without arguments, or leaving empty elements at any point in the list.
+This works exactly like
+.Sy DS 1 ,
 .Sy DS 2
+and
+.Sy DS 4
 respectively.
 Consequently,
-.Ic DB
-and
+.Ic DB ,
 .Ic DW
+and
+.Ic DL
 can be used in a
 .Sy WRAM0 No / Sy WRAMX No / Sy HRAM No / Sy VRAM No / Sy SRAM
 section.
@@ -588,12 +662,15 @@ allocates a number of bytes.
 The content is undefined.
 This is the preferred method of allocationg space in a RAM section.
 You can, however, use
-.Ic DB
-and
+.Ic DB ,
 .Ic DW
+and
+.Ic DL
 without any arguments instead.
 .Pp
-.Dl DS str_SIZEOF ;allocate str_SIZEOF bytes
+.Bd -literal -offset indent
+DS str_SIZEOF ;allocate str_SIZEOF bytes
+.Ed
 .Pp
 .Ss Including binary files
 You probably have some graphics you'd like to include.
@@ -603,15 +680,54 @@ to include a raw binary file as it is.
 If the file isn't found in the current directory, the include-path list passed
 to the linker on the command line will be searched.
 .Pp
-.Dl INCBIN \[dq]titlepic.bin\[dq]
-.Dl INCBIN \[dq]sprites/hero.bin\[dq]\ ; UNIX
-.Dl INCBIN \[dq]sprites\[rs]\[rs]hero.bin\[dq]\ ; Windows
+.Bd -literal -offset indent
+INCBIN \[dq]titlepic.bin\[dq]
+INCBIN \[dq]sprites/hero.bin\[dq]\ ; UNIX
+INCBIN \[dq]sprites\[rs]\[rs]hero.bin\[dq]\ ; Windows
+.Ed
 .Pp
 You can also include only part of a file with
 .Ic INCBIN .
 The example below includes 256 bytes from data.bin starting from byte 78.
 .Pp
-.Dl INCBIN \[dq]data.bin\[dq],78,256
+.Bd -literal -offset indent
+INCBIN \[dq]data.bin\[dq],78,256
+.Ed
+.Ss Unions
+Unions allow multiple memory allocations to share the same space in memory,
+like unions in C.
+This allows you to easily reuse memory for different purposes, depending on
+the game's state.
+.Pp
+You create unions using the
+.Ic UNION ,
+.Ic NEXTU
+and
+.Ic ENDU
+keywords.
+.Ic NEXTU
+lets you create a new block of allocations, and you may use it as many times
+within a union as necessary.
+.Pp
+.Bd -literal -offset indent
+UNION
+Name: ds 8
+Nickname: ds 8
+NEXTU
+Health: dw
+Something: ds 3
+Lives: db
+NEXTU
+Temporary: ds 19
+ENDU
+.Ed
+.Pp
+This union will use up 19 bytes, as this is the size of the largest block
+(the last one, containing 'Temporary').
+Of course, as 'Name', 'Health', and 'Temporary' all point to the same memory
+locations, writes to any one of these will affect values read from the others.
+.Pp
+Unions may be used in any section, but code and data may not be included.
 .Sh THE MACRO LANGUAGE
 .Pp
 .Ss Printing things during assembly
@@ -621,16 +737,19 @@ some important information.
 .Pp
 .Bd -literal -offset indent
 PRINTT \[dq]I'm the greatest programmer in the whole wide world\[rs]n\[dq]
-PRINTV (2+3)/5
-PRINTF MUL(3.14,3987.0)
+PRINTI (2 + 3) / 5
+PRINTV $FF00 + $F0
+PRINTF MUL(3.14, 3987.0)
 .Ed
 .Pp
 .Bl -inset
 .It Ic PRINTT
 prints out a string.
 .It Ic PRINTV
-prints out an integer value or, as in the example, the result of a calculation.
-Unsurprisingly, you can also print out a constant symbols value.
+prints out an integer value in hexadecimal or, as in the example, the result of
+a calculation. Unsurprisingly, you can also print out a constant symbols value.
+.It Ic PRINTI
+prints out a signed integer value.
 .It Ic PRINTF
 prints out a fixed point value.
 .El
@@ -701,30 +820,53 @@ You may nest
 .Ic INCLUDE
 calls infinitely (or until you run out of memory, whichever comes first).
 .Pp
-.Dl INCLUDE \[dq]irq.inc\[dq]
+.Bd -literal -offset indent
+    INCLUDE \[dq]irq.inc\[dq]
+.Ed
 .Pp
 .Ss Conditional assembling
-The three commands
+The four commands
 .Ic IF ,
-.Ic ELSE
+.Ic ELIF ,
+.Ic ELSE ,
 and
 .Ic ENDC
 are used to conditionally assemble parts of your file.
 This is a powerful feature commonly used in macros.
 .Pp
 .Bd -literal -offset indent
-IF 2+2==4
-PRINTT \[dq]2+2==4\[rs]n\[dq]
+IF NUM < 0
+  PRINTT \[dq]NUM < 0\[rs]n\[dq]
+ELIF NUM == 0
+  PRINTT \[dq]NUM == 0\[rs]n\[dq]
 ELSE
-PRINTT \[dq]2+2!=4\[rs]n\[dq]
+  PRINTT \[dq]NUM > 0\[rs]n\[dq]
 ENDC
 .Ed
 .Pp
 The
+.Ic ELIF
+and
 .Ic ELSE
-block is optional.
-.Ic IF No / Ic ELSE No / Ic ENDC
+blocks are optional.
+.Ic IF No / Ic ELIF No / Ic ELSE No / Ic ENDC
 blocks can be nested.
+.Pp
+Note that if an
+.Ic ELSE
+block is found before an
+.Ic ELIF
+block, the
+.Ic ELIF
+block will be ignored.
+All
+.Ic ELIF
+blocks must go before the
+.Ic ELSE
+block.
+Also, if there is more than one
+.Ic ELSE
+block, all of them but the first one are ignored.
 .Ss Integer and Boolean expressions
 An expression can be composed of many things.
 Expressions are always evaluated using signed 32-bit math.
@@ -756,7 +898,9 @@ The last one, Gameboy graphics, is quite interesting and useful.
 The values are actually pixel values and it converts the
 .Do chunky Dc data to Do planar Dc data as used in the Gameboy.
 .Pp
-.Dl DW \`01012323
+.Bd -literal -offset indent
+    DW \`01012323
+.Ed
 .Pp
 Admittedly, an expression with just a single number is quite boring.
 To spice things up a bit there are a few operators you can use to perform
@@ -897,14 +1041,48 @@ new string.
 the new string.
 .El
 .Pp
+.Ss Character maps
+.Pp
+When writing text that is meant to be displayed in the Game Boy, the ASCII
+characters used in the source code may not be the same ones used in the tileset
+used in the ROM.
+For example, the tiles used for uppercase letters may be placed starting at tile
+index 128, which makes it difficult to add text strings to the ROM.
+.Pp
+Character maps allow the code to map strings up to 16 characters long to an
+abitrary 8-bit value:
+.Pp
+.Bd -literal -offset indent
+CHARMAP "<LF>", 10
+CHARMAP "&iacute", 20
+CHARMAP "A", 128
+.Ed
+.Pp
+.Sy Note:
+Character maps affect all strings in the file from the point in which they are
+defined.
+This means that any string that the code may want to print as debug information
+will also be affected by it.
+.Pp
+.Sy Note:
+The output value of a mapping can be 0.
+If this happens, the assembler will treat this as the end of the string and the
+rest of it will be trimmed.
+.Pp
 .Ss Other functions
 There are a few other functions that do various useful things:
 .Pp
 .Bl -column ".Sy String" ".Sy String"
 .It Sy Name Ta Ta Ta Sy Operation
-.It Li BANK(label) Ta Returns the bank number label is in.
-The linker will have to resolve this so it can't be used when the expression has
-to be constant.
+.It Li BANK(\@/str/lbl) Ta Returns a bank number.
+If the argument is the symbol
+.Ic \@,
+this function returns the bank of the current section.
+If the argument is a string, it returns the bank of the section that has that
+name.
+If the argument is a label, it returns the bank number the label is in.
+For labels, as the linker has to resolve this, it can't be used when the
+expression has to be constant.
 .It Li DEF(label) Ta Returns TRUE if label has been defined.
 .It Li HIGH(r16/cnst/lbl) Ta Returns the top 8 bits of the operand if it is a
 label or constant, or the top 8-bit register if it is a 16-bit register.
@@ -956,6 +1134,15 @@ machine.
 .It Sx __ISO_8601_UTC__
 .It Sx __LINE__
 .It Sx __TIME__
+.It Sx __RGBDS_MAJOR__
+.It Sx __RGBDS_MINOR__
+.It Sx __RGBDS_PATCH__
+.It Sx __UTC_YEAR__
+.It Sx __UTC_MONTH__
+.It Sx __UTC_DAY__
+.It Sx __UTC_HOUR__
+.It Sx __UTC_MINUTE__
+.It Sx __UTC_SECOND__
 .It Sx _NARG
 .It Sx _PI
 .It Sx _RS
@@ -964,12 +1151,15 @@ machine.
 .It Sx ATAN
 .It Sx ATAN2
 .It Sx BANK
+.It Sx CHARMAP
 .It Sx COS
 .It Sx DB
 .It Sx DEF
 .It Sx DIV
+.It Sx DL
 .It Sx DS
 .It Sx DW
+.It Sx ELIF
 .It Sx ELSE
 .It Sx ENDC
 .It Sx ENDM
@@ -991,6 +1181,7 @@ machine.
 .It Sx POPO
 .It Sx POPS
 .It Sx PRINTF
+.It Sx PRINTI
 .It Sx PRINTT
 .It Sx PRINTV
 .It Sx PURGE

@@ -1,16 +1,16 @@
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #ifndef RGBDS_TYPES_H
 #define RGBDS_TYPES_H
 
 #ifndef _MAX_PATH
-#define	_MAX_PATH	512
+#define _MAX_PATH 512
 #endif
 
-typedef unsigned char UBYTE;
-typedef signed char SBYTE;
-typedef unsigned short UWORD;
-typedef signed short SWORD;
-typedef unsigned long ULONG;
-typedef signed long SLONG;
-typedef signed char BBOOL;
-
-#endif
+#endif /* RGBDS_TYPES_H */

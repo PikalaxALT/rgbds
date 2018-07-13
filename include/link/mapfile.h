@@ -1,11 +1,21 @@
-#ifndef	RGBDS_LINK_MAPFILE_H
-#define	RGBDS_LINK_MAPFILE_H
+/*
+ * This file is part of RGBDS.
+ *
+ * Copyright (c) 1997-2018, Carsten Sorensen and RGBDS contributors.
+ *
+ * SPDX-License-Identifier: MIT
+ */
 
-extern void SetMapfileName(char *name);
-extern void SetSymfileName(char *name);
-extern void CloseMapfile(void);
-extern void MapfileWriteSection(struct sSection * pSect);
-extern void MapfileInitBank(SLONG bank);
-extern void MapfileCloseBank(SLONG slack);
+#ifndef RGBDS_LINK_MAPFILE_H
+#define RGBDS_LINK_MAPFILE_H
 
-#endif
+#include <stdint.h>
+
+void SetMapfileName(char *name);
+void SetSymfileName(char *name);
+void CloseMapfile(void);
+void MapfileWriteSection(const struct sSection *pSect);
+void MapfileInitBank(int32_t bank);
+void MapfileCloseBank(int32_t slack);
+
+#endif /* RGBDS_LINK_MAPFILE_H */

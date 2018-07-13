@@ -1,3 +1,4 @@
+#!/bin/sh
 otemp=$(mktemp)
 gbtemp=$(mktemp)
 
@@ -23,5 +24,8 @@ $RGBLINK -d -o $gbtemp $otemp > vram-floating-dmg-mode-d.out 2>&1
 $RGBASM -o $otemp romx-tiny.asm
 $RGBLINK -o $gbtemp $otemp > romx-tiny-no-t.out 2>&1
 $RGBLINK -t -o $gbtemp $otemp > romx-tiny-t.out 2>&1
+
+$RGBASM -o $otemp all-instructions.asm
+$RGBLINK -o all-instructions.out.bin $otemp 2>&1
 
 exit 0

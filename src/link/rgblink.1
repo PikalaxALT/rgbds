@@ -1,18 +1,11 @@
-.\" Copyright © 2010 Anthony J. Bentley <anthony@anjbe.name>
 .\"
-.\" Permission to use, copy, modify, and distribute this software for any
-.\" purpose with or without fee is hereby granted, provided that the above
-.\" copyright notice and this permission notice appear in all copies.
+.\" This file is part of RGBDS.
 .\"
-.\" THE SOFTWARE IS PROVIDED “AS IS” AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\" Copyright (c) 2010-2018, Anthony J. Bentley and RGBDS contributors.
 .\"
-.Dd April 17, 2017
+.\" SPDX-License-Identifier: MIT
+.\"
+.Dd January 26, 2018
 .Dt RGBLINK 1
 .Os RGBDS Manual
 .Sh NAME
@@ -20,9 +13,7 @@
 .Nd Game Boy linker
 .Sh SYNOPSIS
 .Nm rgblink
-.Op Fl t
-.Op Fl w
-.Op Fl d
+.Op Fl dtVw
 .Op Fl m Ar mapfile
 .Op Fl n Ar symfile
 .Op Fl O Ar overlayfile
@@ -66,7 +57,7 @@ Write a symbol file to the given filename.
 .It Fl O Ar overlayfile
 The ROM image to overlay sections over.
 When an overlay ROM is provided, all sections must be fixed.
-This may be used to patch an existing binray.
+This may be used to patch an existing binary.
 .It Fl o Ar outfile
 Write ROM image to the given filename.
 .It Fl p Ar pad_value
@@ -95,6 +86,8 @@ have to be consistent.
 See
 .Xr rgblink 5
 for more information about its format.
+.It Fl V
+Print the version of the program and exit.
 .El
 .Sh EXAMPLES
 All you need for a basic ROM is an object file, which can be made into a ROM
